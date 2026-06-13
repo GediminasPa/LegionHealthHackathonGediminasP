@@ -7,8 +7,10 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { createMedicationSession, getMedicationDemoCases } from "./api";
 import { PRODUCT_LOGO_SRC, PRODUCT_NAME } from "./brand";
 import type { DemoCase, MedicationIntakeData, PaStatus } from "./medicationTypes";
@@ -79,14 +81,16 @@ export default function MedicationIntake({
                   src={PRODUCT_LOGO_SRC}
                   alt={`${PRODUCT_NAME} logo`}
                 />
-                <h1 className="text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-[#f7f2ec] sm:text-6xl lg:text-7xl">
+                <h1 className="text-4xl font-semibold leading-[0.98] tracking-[-0.055em] text-[#f7f2ec] min-[430px]:text-5xl sm:text-6xl lg:text-7xl">
                   {PRODUCT_NAME}
                 </h1>
               </div>
-              <p className="ui-sans mx-auto mt-6 max-w-[50rem] text-lg leading-8 text-[#c7c0b8]">
+              <p className="ui-sans mx-auto mt-6 max-w-[50rem] break-words px-1 text-base leading-7 text-[#c7c0b8] sm:text-lg sm:leading-8">
                 Enter the client, medication, and coverage details. The affordability review starts from this case file.
               </p>
             </div>
+
+            <ProductExplainer />
 
             <div className="ui-sans mt-10 flex flex-wrap items-center gap-2">
               <button
@@ -144,7 +148,7 @@ export default function MedicationIntake({
           void startInvestigation();
         }}
       >
-              <div className="grid gap-3 lg:grid-cols-12">
+              <div className="grid gap-4 lg:grid-cols-12">
                 <Panel className="lg:col-span-4" title="Client">
                   <Field label="Patient name" required>
             <input
@@ -313,6 +317,151 @@ export default function MedicationIntake({
   );
 }
 
+function ProductExplainer() {
+  return (
+    <section className="mt-12 grid gap-8 lg:grid-cols-3">
+      <ExplainerStep
+        number="1"
+        title="Fill in the information"
+        body="Add the medication, quoted price, coverage, and any pharmacy or plan notes."
+        visual={<CaseFileVisual />}
+      />
+      <ExplainerStep
+        number="2"
+        title="Agent searches routes"
+        body="CopayGuard checks plan rules, assistance programs, coupons, and pharmacy options."
+        visual={<AgentSearchVisual />}
+      />
+      <ExplainerStep
+        number="3"
+        title="See the price drop"
+        body="The best route is ranked with evidence, next steps, and a clearer expected cost."
+        visual={<PriceDropVisual />}
+      />
+    </section>
+  );
+}
+
+function ExplainerStep({
+  number,
+  title,
+  body,
+  visual,
+}: {
+  number: string;
+  title: string;
+  body: string;
+  visual: React.ReactNode;
+}) {
+  return (
+    <article className="infographic-step min-w-0">
+      <p className="infographic-step-number">{number}</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#f7f2ec] sm:text-3xl lg:text-[2rem]">
+        {title}
+      </h2>
+      <p className="ui-sans mt-3 max-w-[29rem] break-words text-[0.95rem] leading-6 text-[#c7c0b8]">
+        {body}
+      </p>
+      <div className="infographic-visual mt-6">{visual}</div>
+    </article>
+  );
+}
+
+function CaseFileVisual() {
+  return (
+    <div className="grid h-full content-center gap-4 p-5 sm:p-7">
+      <div className="infographic-mini-card flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#ef6844] text-white">
+            <FilePlus2 size={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold text-[#f7f2ec]">Case details</p>
+            <p className="ui-sans mt-1 truncate text-xs text-[#c7c0b8]">Quote and plan</p>
+          </div>
+        </div>
+        <span className="ui-sans shrink-0 border border-[#ef6844]/50 bg-[#2b1b15] px-2 py-1 text-xs font-semibold text-[#ffd0be]">
+          Ready
+        </span>
+      </div>
+
+      <div className="infographic-mini-card grid gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-lg font-semibold text-[#f7f2ec]">Prescription</p>
+          <CheckCircle2 className="text-[#ffc36a]" size={20} />
+        </div>
+        <div className="grid gap-3">
+          <div className="h-3 w-3/5 bg-[#5f5a56]" />
+          <div className="h-3 w-4/5 bg-[#3a3835]" />
+          <div className="h-3 w-2/5 bg-[#3a3835]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentSearchVisual() {
+  return (
+    <div className="grid h-full content-center gap-4 p-5 sm:p-7">
+      <div className="infographic-mini-card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-lg font-semibold text-[#f7f2ec]">Search plan</p>
+            <p className="ui-sans mt-1 text-xs text-[#c7c0b8]">Multiple routes checked</p>
+          </div>
+          <span className="infographic-spark flex h-10 w-10 shrink-0 items-center justify-center border border-[#ef6844]/55 bg-[#2b1b15] text-[#ffc36a]">
+            <Sparkles size={18} />
+          </span>
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {["Plan rules", "Assistance", "Coupons", "Pharmacies"].map((item, index) => (
+          <div
+            className="infographic-database-row ui-sans"
+            key={item}
+            style={{ "--row-index": index } as CSSProperties}
+          >
+            <span className="text-[#c7c0b8]">{item}</span>
+            <span className="h-1.5 w-1.5 bg-[#ef6844]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PriceDropVisual() {
+  return (
+    <div className="infographic-price-visual grid gap-4 p-5 sm:p-7">
+      <div className="infographic-mini-card infographic-price-comparison relative overflow-hidden">
+        <div className="infographic-scan-line" />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="ui-sans text-xs font-semibold uppercase tracking-[0.1em] text-[#c7c0b8]">
+              Initial quote
+            </p>
+            <p className="infographic-old-price mt-2 text-4xl font-semibold tracking-[-0.05em]">
+              $2,000
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="ui-sans text-xs font-semibold uppercase tracking-[0.1em] text-[#c7c0b8]">
+              Best option
+            </p>
+            <p className="infographic-new-price mt-2 text-5xl font-semibold tracking-[-0.06em]">
+              $500
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="infographic-mini-card infographic-savings-card flex items-center justify-between gap-4">
+        <p className="font-semibold text-[#f7f2ec]">$1,500 potential savings</p>
+        <ShieldCheck className="shrink-0 text-[#61d394]" size={22} />
+      </div>
+    </div>
+  );
+}
+
 function Panel({
   title,
   className = "",
@@ -323,8 +472,8 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`evidence-panel p-0 ${className}`}>
-      <h2 className="ui-sans mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-[#c7c0b8]">
+    <section className={`evidence-panel p-4 sm:p-5 ${className}`}>
+      <h2 className="ui-sans mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-[#c7c0b8]">
         {title}
       </h2>
       <div className="grid gap-5">{children}</div>
