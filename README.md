@@ -1,6 +1,6 @@
 # LegionHealthHackathonGediminasP
 
-FastAPI + Postgres + Pydantic AI agent + React frontend, copied from `hackathon-starter` and prepared for local Docker development plus Vercel deployment.
+FastAPI + Postgres + a Grok-powered Pydantic AI agent + React frontend, copied from `hackathon-starter` and prepared for local Docker development plus Vercel deployment.
 
 ## Stack
 
@@ -28,7 +28,19 @@ bin/dev
 
 Open `http://localhost:5173`. The health badge should show the API and DB status.
 
-To enable the AI chat, add `GROK_API_KEY` or `XAI_API_KEY` to `.env` and restart `bin/dev`.
+To enable the app's main AI agent, add `GROK_API_KEY` or `XAI_API_KEY` to `.env` and restart `bin/dev`.
+
+## Main Agent
+
+The application uses xAI Grok as its primary agent model through Pydantic AI. The backend builds the model from `.env` per request, so local development and deployed environments both use the same settings:
+
+```bash
+GROK_API_KEY=<your-grok-key>
+GROK_BASE_URL=https://api.x.ai/v1
+AGENT_MODEL=grok:grok-4.3
+```
+
+The chat UI streams through `POST /api/agent/chat`. Anthropic remains available only as a fallback by setting `AGENT_MODEL=anthropic:<model>` and `ANTHROPIC_API_KEY`.
 
 ## Day-to-day
 

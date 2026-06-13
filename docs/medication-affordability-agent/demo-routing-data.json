@@ -1,0 +1,47 @@
+{
+  "demo_case": {
+    "patient_name": "Maria Chen",
+    "state": "CA",
+    "insurance_type": "Medicare Part D",
+    "plan_name": "Wellcare Value Script (PDP)",
+    "plan_id": "S4802-163-0",
+    "drug": {
+      "brand_name": "Enbrel SureClick",
+      "generic_name": "etanercept",
+      "strength": "50 mg/mL",
+      "form": "subcutaneous pen injector",
+      "dose": "1 syringe weekly",
+      "diagnosis": "rheumatoid arthritis",
+      "wac_per_50mg_syringe_usd": 2141.37,
+      "four_week_wac_proxy_usd": 8565.48
+    },
+    "plan_facts": {
+      "formulary_tier": 5,
+      "tier_name": "Specialty Tier",
+      "requires_prior_authorization": true,
+      "quantity_limit": "8 mL per 28 days",
+      "annual_deductible_usd": 615,
+      "deductible_applies_to_tiers": "3-6",
+      "tier_5_coinsurance": "25%",
+      "part_d_2026_oop_threshold_usd": 2100
+    },
+    "user_problem": {
+      "pa_status": "approved",
+      "quoted_price_usd": 2100,
+      "main_issue": "covered but unaffordable specialty-tier cost sharing"
+    },
+    "agent_decision": {
+      "do_not_recommend": [
+        "manufacturer copay card as secondary payer with Medicare Part D"
+      ],
+      "primary_actions": [
+        "screen for Medicare Extra Help",
+        "check independent RA foundation grants and alert signup",
+        "check Amgen Safety Net Foundation eligibility",
+        "offer Medicare Prescription Payment Plan smoothing",
+        "generate prescriber message and plan call script"
+      ]
+    }
+  }
+}
+
