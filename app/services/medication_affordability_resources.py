@@ -12,6 +12,10 @@ def load_resources() -> list[dict[str, Any]]:
     return json.loads(RESOURCES_PATH.read_text())
 
 
+def list_resource_connections() -> list[dict[str, Any]]:
+    return load_resources()
+
+
 def search_curated_resources(
     query: str = "", tags: list[str] | None = None, limit: int = 5
 ) -> list[dict[str, Any]]:

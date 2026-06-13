@@ -22,6 +22,22 @@ export type DemoCase = {
   intake: MedicationIntakeData;
 };
 
+export type MedicationResourceConnection = {
+  id: string;
+  name: string;
+  url: string;
+  domains: string[];
+  tags: string[];
+  queryTemplates: string[];
+  notesForAgent: string;
+  lastCheckedAt: string | null;
+  category: string;
+  status: string;
+  use: string;
+  reviewCadence: string;
+  logoUrl: string | null;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";

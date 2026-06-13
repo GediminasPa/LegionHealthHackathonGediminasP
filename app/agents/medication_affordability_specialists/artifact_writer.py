@@ -14,6 +14,70 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
     insurance_type = intake.insurance_type.lower()
     pa_status = intake.pa_status.lower()
 
+    if intake.quoted_price_cents <= 0:
+        if _is_ozempic(intake):
+            return {
+                "artifact_type": "checklist",
+                "title": "Ozempic pre-fill coverage and price checklist",
+                "content": "\n".join(
+                    [
+                        f"Patient: {intake.patient_name}",
+                        f"Medication: {medication}",
+                        f"Diagnosis: {intake.diagnosis or '[confirm diagnosis]'}",
+                        "",
+                        "Before pickup, confirm:",
+                        "1. Is Ozempic covered for the documented diagnosis?",
+                        "2. Is prior authorization, step therapy, or a quantity limit required?",
+                        "3. Which pharmacy or mail-order channel gives the lowest plan cost?",
+                        "4. What is the expected copay after the claim is run with insurance?",
+                        "5. Does a commercial savings offer apply, and what monthly cap applies?",
+                        "6. If self-pay is used, will that spend miss deductible or OOP credit?",
+                        "",
+                        "Current public estimate bands to verify:",
+                        "- Covered commercial route: savings offer may reduce eligible fills, "
+                        "but plan coverage and monthly caps control the result.",
+                        "- NovoCare self-pay route: public Ozempic pen offers currently list "
+                        "$199 starter fills for eligible new patients, then $349/month for "
+                        "0.25 mg, 0.5 mg, or 1 mg pens and $499/month for 2 mg pens.",
+                        "- Generic alternative route: metformin ER or other generic diabetes "
+                        "medicines can be far cheaper, but only if clinically appropriate.",
+                        "",
+                        "Alternatives to ask the prescriber about:",
+                        "1. Metformin ER or another low-cost generic diabetes option.",
+                        "2. SGLT2 inhibitor options such as Jardiance or Farxiga if the "
+                        "patient profile fits.",
+                        "3. Other GLP-1 or incretin options such as Trulicity or Mounjaro if "
+                        "covered and clinically appropriate.",
+                        "4. Wegovy or Zepbound only for obesity-labeled routes, not as a "
+                        "simple Ozempic substitute.",
+                        "",
+                        "Do not switch therapies without prescriber confirmation.",
+                    ]
+                ),
+            }
+
+        return {
+            "artifact_type": "checklist",
+            "title": "Pre-fill price and access checklist",
+            "content": "\n".join(
+                [
+                    f"Patient: {intake.patient_name}",
+                    f"Medication: {medication}",
+                    f"Diagnosis: {intake.diagnosis or '[confirm diagnosis]'}",
+                    "",
+                    "Before pickup, confirm:",
+                    "1. Is prior authorization, step therapy, or a quantity limit required?",
+                    "2. Does the plan prefer a generic, biosimilar, or therapeutic alternative?",
+                    "3. What is the expected cost at the preferred pharmacy?",
+                    "4. What cash price is available if the claim is not favorable?",
+                    "5. Would cash payment fail to count toward deductible or "
+                    "out-of-pocket progress?",
+                    "",
+                    "Ask the prescriber before changing to any therapeutic alternative.",
+                ]
+            ),
+        }
+
     if "denied" in pa_status:
         return {
             "artifact_type": "appeal_letter",
@@ -93,3 +157,8 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
             ]
         ),
     }
+
+
+def _is_ozempic(intake: MedicationAffordabilityIntakeCreate) -> bool:
+    medication = intake.medication_name.lower()
+    return "ozempic" in medication or "semaglutide" in medication

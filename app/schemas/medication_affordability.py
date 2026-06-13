@@ -206,6 +206,22 @@ class MedicationAffordabilityDemoCase(BaseModel):
     intake: MedicationAffordabilityIntakeCreate
 
 
+class MedicationAffordabilityResourceConnection(BaseModel):
+    id: str
+    name: str
+    url: str
+    domains: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    query_templates: list[str] = Field(default_factory=list)
+    notes_for_agent: str
+    last_checked_at: str | None = None
+    category: str = "Curated resource"
+    status: str = "Curate now"
+    use: str
+    review_cadence: str
+    logo_url: str | None = None
+
+
 class MedicationAffordabilityRunRequest(BaseModel):
     mode: Literal["mock", "agent"] = "agent"
 

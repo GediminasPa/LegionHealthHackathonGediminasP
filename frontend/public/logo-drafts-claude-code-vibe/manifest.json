@@ -1,0 +1,38 @@
+[
+  {
+    "file": "frontend/public/logo-drafts-claude-code-vibe/copayguard-claude-code-vibe-01-pixel-shield.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: fourth-round product app icon exploration for CopayGuard\nPrimary request: same defensive pill mascot holding an oversized shield, but translated into a dark developer-tool icon vibe with orange technical/pixel linework\nSubject: a simple pill-shaped mascot defending itself with a shield larger than its body; pill is mostly hidden behind the large shield; one visible left hand grips the shield edge; shield pushed forward as a protective block\nStyle/medium: minimalist app icon, dark rounded-square background, geometric technical illustration, pixel-grid and terminal-inspired linework, subtle 8-bit/block construction, clean vector-friendly shapes, sparse details, premium developer-tool aesthetic\nComposition/framing: centered inside a dark rounded square, shield dominates the mark, pill peeks from behind it, large readable silhouette, no scene, app-icon-ready at small size\nColor palette: near-black charcoal background, graphite gray shapes, warm orange/copper linework, muted amber highlights, off-white tiny highlights only; gray/orange brand palette\nText (verbatim): none\nConstraints: no written text, no letters, no wordmark, no watermark, no photorealism, no red cross, no Claude logo, no Anthropic starburst, no asterisk/sunburst, no exact imitation of any existing brand mark\nAvoid: teal, blue, green, purple, red, busy background, cute toy look, detailed face, medical-cross symbol, copied Claude Code icon, fake text\nVariation: shield built from chunky orange pixel-like strokes and charcoal fills, pill silhouette tucked behind the left edge, simple two-dot face barely visible.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-claude-code-vibe/copayguard-claude-code-vibe-02-terminal-badge.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: fourth-round product app icon exploration for CopayGuard\nPrimary request: same defensive pill mascot holding an oversized shield, but translated into a dark developer-tool icon vibe with orange technical/pixel linework\nSubject: a simple pill-shaped mascot defending itself with a shield larger than its body; pill is mostly hidden behind the large shield; one visible left hand grips the shield edge; shield pushed forward as a protective block\nStyle/medium: minimalist app icon, dark rounded-square background, geometric technical illustration, pixel-grid and terminal-inspired linework, subtle 8-bit/block construction, clean vector-friendly shapes, sparse details, premium developer-tool aesthetic\nComposition/framing: centered inside a dark rounded square, shield dominates the mark, pill peeks from behind it, large readable silhouette, no scene, app-icon-ready at small size\nColor palette: near-black charcoal background, graphite gray shapes, warm orange/copper linework, muted amber highlights, off-white tiny highlights only; gray/orange brand palette\nText (verbatim): none\nConstraints: no written text, no letters, no wordmark, no watermark, no photorealism, no red cross, no Claude logo, no Anthropic starburst, no asterisk/sunburst, no exact imitation of any existing brand mark\nAvoid: teal, blue, green, purple, red, busy background, cute toy look, detailed face, medical-cross symbol, copied Claude Code icon, fake text\nVariation: dark terminal-style rounded-square badge, shield outline drawn like monospaced orange code glyphs, pill bracing behind it with one left hand on the rim.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-claude-code-vibe/copayguard-claude-code-vibe-03-copper-grid.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: fourth-round product app icon exploration for CopayGuard\nPrimary request: same defensive pill mascot holding an oversized shield, but translated into a dark developer-tool icon vibe with orange technical/pixel linework\nSubject: a simple pill-shaped mascot defending itself with a shield larger than its body; pill is mostly hidden behind the large shield; one visible left hand grips the shield edge; shield pushed forward as a protective block\nStyle/medium: minimalist app icon, dark rounded-square background, geometric technical illustration, pixel-grid and terminal-inspired linework, subtle 8-bit/block construction, clean vector-friendly shapes, sparse details, premium developer-tool aesthetic\nComposition/framing: centered inside a dark rounded square, shield dominates the mark, pill peeks from behind it, large readable silhouette, no scene, app-icon-ready at small size\nColor palette: near-black charcoal background, graphite gray shapes, warm orange/copper linework, muted amber highlights, off-white tiny highlights only; gray/orange brand palette\nText (verbatim): none\nConstraints: no written text, no letters, no wordmark, no watermark, no photorealism, no red cross, no Claude logo, no Anthropic starburst, no asterisk/sunburst, no exact imitation of any existing brand mark\nAvoid: teal, blue, green, purple, red, busy background, cute toy look, detailed face, medical-cross symbol, copied Claude Code icon, fake text\nVariation: copper/orange grid construction lines on the oversized shield, pill as a simple gray capsule peeking out, very reduced and technical, strong icon silhouette.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-claude-code-vibe/copayguard-claude-code-vibe-04-block-mark.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: fourth-round product app icon exploration for CopayGuard\nPrimary request: same defensive pill mascot holding an oversized shield, but translated into a dark developer-tool icon vibe with orange technical/pixel linework\nSubject: a simple pill-shaped mascot defending itself with a shield larger than its body; pill is mostly hidden behind the large shield; one visible left hand grips the shield edge; shield pushed forward as a protective block\nStyle/medium: minimalist app icon, dark rounded-square background, geometric technical illustration, pixel-grid and terminal-inspired linework, subtle 8-bit/block construction, clean vector-friendly shapes, sparse details, premium developer-tool aesthetic\nComposition/framing: centered inside a dark rounded square, shield dominates the mark, pill peeks from behind it, large readable silhouette, no scene, app-icon-ready at small size\nColor palette: near-black charcoal background, graphite gray shapes, warm orange/copper linework, muted amber highlights, off-white tiny highlights only; gray/orange brand palette\nText (verbatim): none\nConstraints: no written text, no letters, no wordmark, no watermark, no photorealism, no red cross, no Claude logo, no Anthropic starburst, no asterisk/sunburst, no exact imitation of any existing brand mark\nAvoid: teal, blue, green, purple, red, busy background, cute toy look, detailed face, medical-cross symbol, copied Claude Code icon, fake text\nVariation: most abstract and logo-like, pill and shield simplified into blocky geometric forms with a defensive pose implied by overlap; no face if needed, shield remains clearly dominant.",
+    "revised_prompt": ""
+  }
+]

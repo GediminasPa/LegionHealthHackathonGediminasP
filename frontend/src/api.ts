@@ -13,6 +13,7 @@ import type {
   CostTrackerState,
   DemoCase,
   MedicationIntakeData,
+  MedicationResourceConnection,
   MedicationRunEvent,
   MedicationSnapshot,
   SourceRecord,
@@ -103,6 +104,22 @@ type ApiDemoCase = {
   intake: ApiIntake;
 };
 
+type ApiMedicationResourceConnection = {
+  id: string;
+  name: string;
+  url: string;
+  domains: string[];
+  tags: string[];
+  query_templates: string[];
+  notes_for_agent: string;
+  last_checked_at: string | null;
+  category: string;
+  status: string;
+  use: string;
+  review_cadence: string;
+  logo_url: string | null;
+};
+
 export async function getMedicationDemoCases(): Promise<DemoCase[]> {
   const res = await fetch("/api/medication-affordability/demo-cases");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -112,6 +129,27 @@ export async function getMedicationDemoCases(): Promise<DemoCase[]> {
     title: demo.title,
     summary: demo.summary,
     intake: fromApiIntake(demo.intake),
+  }));
+}
+
+export async function getMedicationResources(): Promise<MedicationResourceConnection[]> {
+  const res = await fetch("/api/medication-affordability/resources");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const resources = (await res.json()) as ApiMedicationResourceConnection[];
+  return resources.map((resource) => ({
+    id: resource.id,
+    name: resource.name,
+    url: resource.url,
+    domains: resource.domains ?? [],
+    tags: resource.tags ?? [],
+    queryTemplates: resource.query_templates ?? [],
+    notesForAgent: resource.notes_for_agent,
+    lastCheckedAt: resource.last_checked_at,
+    category: resource.category,
+    status: resource.status,
+    use: resource.use,
+    reviewCadence: resource.review_cadence,
+    logoUrl: resource.logo_url,
   }));
 }
 

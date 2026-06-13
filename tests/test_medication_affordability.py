@@ -64,16 +64,77 @@ def _commercial_payload() -> dict[str, object]:
     }
 
 
+def _ozempic_prefill_payload() -> dict[str, object]:
+    return {
+        "intake": {
+            "patient_name": "Nina Brooks",
+            "state": "CA",
+            "medication_name": "Ozempic",
+            "strength": "0.25 mg or 0.5 mg dose pen",
+            "dose": "weekly starter dose",
+            "quoted_price_cents": 0,
+            "insurance_type": "Commercial",
+            "pa_status": "unknown",
+            "plan_name": "Commercial PPO pharmacy benefit",
+            "plan_id": None,
+            "diagnosis": "type 2 diabetes",
+            "pasted_text": (
+                "Patient is before the first fill. Check prior authorization, step therapy, "
+                "quantity limits, savings-card eligibility, NovoCare self-pay pricing, cash "
+                "discount checks, and prescriber-reviewed alternatives such as metformin ER, "
+                "Jardiance, Farxiga, Trulicity, or Mounjaro."
+            ),
+        }
+    }
+
+
 async def test_demo_cases_endpoint(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/medication-affordability/demo-cases")
 
     assert response.status_code == 200
     cases = response.json()
     assert {case["id"] for case in cases} == {
+        "before-fill-adderall-options",
+        "before-fill-ozempic-alternatives",
         "medicare-enbrel-wellcare",
         "commercial-enbrel-accumulator",
+        "zepbound-sticker-shock-route",
     }
-    assert cases[0]["intake"]["quoted_price_cents"] > 0
+    prefill = next(case for case in cases if case["id"] == "before-fill-ozempic-alternatives")
+    assert prefill["intake"]["quoted_price_cents"] == 0
+    assert prefill["intake"]["medication_name"] == "Ozempic"
+
+
+async def test_resource_registry_endpoint_includes_review_metadata(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.get("/api/medication-affordability/resources")
+
+    assert response.status_code == 200
+    resources = response.json()
+    ozempic = next(resource for resource in resources if resource["id"] == "ozempic-cost-coverage")
+    assert ozempic["status"] == "Curate now"
+    assert "self-pay price bands" in ozempic["use"]
+    assert ozempic["review_cadence"] == "Monthly and before demos"
+
+
+async def test_resource_connection_catalog_endpoint(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/medication-affordability/resources")
+
+    assert response.status_code == 200
+    resources = response.json()
+    resource_ids = {resource["id"] for resource in resources}
+    assert {
+        "rxnorm-drug-normalization",
+        "openfda-ndc-directory",
+        "nadac-price-basis",
+        "medicare-extra-help",
+        "goodrx-specialty-context",
+        "stedi-x12-270-271",
+        "covermymeds-epa",
+    }.issubset(resource_ids)
+    assert all(resource["status"] for resource in resources)
+    assert all(resource["category"] for resource in resources)
 
 
 async def test_session_create_read_and_message_append(client: httpx.AsyncClient) -> None:
@@ -350,6 +411,45 @@ async def test_mock_commercial_run_does_not_claim_unsupported_savings(
     assert tracker["current_best_estimated_price_cents"] is None
     assert tracker["potential_drop_cents"] is None
     assert tracker["drop_type"] == "unknown"
+
+
+async def test_ozempic_prefill_mock_run_includes_estimate_bands_and_sources(
+    client: httpx.AsyncClient,
+) -> None:
+    created = await client.post(
+        "/api/medication-affordability/sessions", json=_ozempic_prefill_payload()
+    )
+    session_id = created.json()["session_id"]
+
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    state = detail.json()["case_state"]["state_json"]
+    assert state["case_moment"] == "before_fill"
+
+    response = await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/runs",
+        json={"mode": "mock"},
+    )
+
+    assert response.status_code == 200
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    payload = detail.json()
+    option = payload["case_state"]["state_json"]["options"][0]
+    assert option["id"] == "ozempic-prefill-alternatives-and-estimates"
+    assert {estimate["estimated_price_cents"] for estimate in option["price_estimates"]} >= {
+        19900,
+        34900,
+        49900,
+    }
+    tracker = payload["case_state"]["state_json"]["cost_tracker"]
+    assert tracker["current_best_label"] == "Demo best estimate: commercial savings route"
+    assert tracker["current_best_estimated_price_cents"] == 2500
+    assert tracker["confidence"] == "found_source"
+    assert payload["artifacts"][0]["title"] == "Ozempic pre-fill coverage and price checklist"
+    assert {source["publisher"] for source in payload["sources"]} >= {
+        "ozempic.com",
+        "novocare.com",
+        "diabetesjournals.org",
+    }
 
 
 def test_pasted_text_extraction_and_public_program_guardrail() -> None:

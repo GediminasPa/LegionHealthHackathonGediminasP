@@ -1,8 +1,46 @@
 [
   {
+    "id": "before-fill-adderall-options",
+    "title": "Adderall XR pre-fill pricing",
+    "summary": "Estimate likely blockers and compare generic stimulant options before the first pharmacy run.",
+    "intake": {
+      "patient_name": "Ari Patel",
+      "state": "CA",
+      "medication_name": "Adderall XR",
+      "strength": "20 mg",
+      "dose": "once daily",
+      "quoted_price_cents": 0,
+      "insurance_type": "Commercial",
+      "pa_status": "unknown",
+      "plan_name": "High-deductible PPO",
+      "plan_id": null,
+      "diagnosis": "ADHD",
+      "pasted_text": "Patient is before the first fill. They want likely price blockers checked before pickup: prior authorization, step therapy, quantity limits, generic substitution, cash discount pricing, and whether the plan prefers a different stimulant. Compare insurance processing with cash estimates for generic mixed amphetamine salts ER, brand Adderall XR, generic lisdexamfetamine, and methylphenidate ER if the prescriber considers alternatives clinically appropriate."
+    }
+  },
+  {
+    "id": "before-fill-ozempic-alternatives",
+    "title": "Ozempic before-fill alternatives",
+    "summary": "Check diagnosis-driven coverage, PA risk, savings routes, and price estimates before the first pharmacy run.",
+    "intake": {
+      "patient_name": "Nina Brooks",
+      "state": "CA",
+      "medication_name": "Ozempic",
+      "strength": "0.25 mg or 0.5 mg dose pen",
+      "dose": "weekly starter dose",
+      "quoted_price_cents": 0,
+      "insurance_type": "Commercial",
+      "pa_status": "unknown",
+      "plan_name": "Commercial PPO pharmacy benefit",
+      "plan_id": null,
+      "diagnosis": "type 2 diabetes",
+      "pasted_text": "Patient is before the first fill. Prescriber sent Ozempic starter dose for type 2 diabetes. They want likely coverage blockers checked before pickup: FDA-approved indication fit, prior authorization, step therapy, quantity limits, preferred pharmacy, and whether the plan prefers another diabetes medication. Estimate likely price paths without claiming a live PBM quote: insurance claim, commercial savings card if covered, NovoCare self-pay if coverage is unfavorable, cash discount checks, and lower-cost alternatives for the prescriber to review. Compare Ozempic only with clinically appropriate options such as metformin ER, an SGLT2 inhibitor such as Jardiance or Farxiga, another GLP-1 or incretin therapy such as Trulicity or Mounjaro, and obesity-labeled routes such as Wegovy or Zepbound only if the indication changes. Do not present any alternative as interchangeable without prescriber confirmation."
+    }
+  },
+  {
     "id": "medicare-enbrel-wellcare",
     "title": "Medicare Enbrel / Wellcare",
-    "summary": "PA approved, high Part D specialty cost, and Medicare-specific assistance paths.",
+    "summary": "PA approved, high Part D specialty cost, and Medicare-correct assistance paths.",
     "intake": {
       "patient_name": "Maria Chen",
       "state": "CA",
@@ -20,8 +58,8 @@
   },
   {
     "id": "commercial-enbrel-accumulator",
-    "title": "Commercial Enbrel accumulator / maximizer",
-    "summary": "Employer PPO specialty case with plan language suggesting accumulator or maximizer rules.",
+    "title": "Commercial Enbrel accumulator",
+    "summary": "Copay support looks helpful today, but plan language suggests deductible credit risk.",
     "intake": {
       "patient_name": "Jordan Lee",
       "state": "CA",
@@ -29,12 +67,31 @@
       "strength": "50 mg/mL",
       "dose": "weekly",
       "quoted_price_cents": 185000,
-      "insurance_type": "commercial",
+      "insurance_type": "Commercial",
       "pa_status": "approved",
-      "plan_name": "Employer-sponsored PPO with specialty pharmacy benefit",
+      "plan_name": "Employer PPO with specialty pharmacy benefit",
       "plan_id": null,
       "diagnosis": "rheumatoid arthritis",
       "pasted_text": "Specialty medication copay assistance will not count toward your deductible and will not apply to your out-of-pocket maximum. A variable copay program may apply. Members may be contacted by PrudentRx or SaveOnSP for enrollment."
+    }
+  },
+  {
+    "id": "zepbound-sticker-shock-route",
+    "title": "Zepbound quote and cash route",
+    "summary": "High GLP-1 quote with coverage uncertainty, savings-card rules, and cash-pay alternatives.",
+    "intake": {
+      "patient_name": "Leah Morgan",
+      "state": "CA",
+      "medication_name": "Zepbound",
+      "strength": "5 mg",
+      "dose": "weekly",
+      "quoted_price_cents": 55000,
+      "insurance_type": "Commercial",
+      "pa_status": "pending",
+      "plan_name": "Commercial PPO pharmacy benefit",
+      "plan_id": null,
+      "diagnosis": "obesity",
+      "pasted_text": "Pharmacy quote is about $550 for the first month after savings-card review. Patient wants to know whether the plan will cover Zepbound, whether LillyDirect self-pay is a better fallback, and whether a plan exception or therapeutic alternative should be discussed with the prescriber."
     }
   }
 ]

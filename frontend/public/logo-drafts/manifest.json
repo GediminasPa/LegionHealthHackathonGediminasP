@@ -1,0 +1,38 @@
+[
+  {
+    "file": "frontend/public/logo-drafts/copayguard-01-friendly-guardian.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: early product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple light background, app-icon-ready, strong readable shape at small size\nColor palette: teal, navy, white, and a restrained warm accent; avoid red cross branding\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no copyrighted medical symbols, shield must be prominent\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text\nConcept direction: a friendly round guardian character with a small cape, confidently holding a clean shield with a subtle medical plus shape built from negative space, approachable and trustworthy.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts/copayguard-02-robot-advocate.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: early product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple light background, app-icon-ready, strong readable shape at small size\nColor palette: teal, navy, white, and a restrained warm accent; avoid red cross branding\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no copyrighted medical symbols, shield must be prominent\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text\nConcept direction: a compact helpful robot advocate with expressive eyes, one hand holding a protective shield, the other holding a small receipt/checkmark motif, sleek and product-like.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts/copayguard-03-pill-paladin.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: early product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple light background, app-icon-ready, strong readable shape at small size\nColor palette: teal, navy, white, and a restrained warm accent; avoid red cross branding\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no copyrighted medical symbols, shield must be prominent\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text\nConcept direction: a tasteful pill-shaped animated character, not cartoonish, holding a shield that suggests savings/protection through a subtle coin/check motif, memorable startup mascot.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts/copayguard-04-shield-helper.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: early product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple light background, app-icon-ready, strong readable shape at small size\nColor palette: teal, navy, white, and a restrained warm accent; avoid red cross branding\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no copyrighted medical symbols, shield must be prominent\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text\nConcept direction: a minimal human-like helper character emerging from behind a shield, shield is the hero shape, calm posture, premium app logo feel, fewer details and bolder geometry.",
+    "revised_prompt": ""
+  }
+]

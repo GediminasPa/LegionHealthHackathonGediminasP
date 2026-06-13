@@ -56,7 +56,14 @@ Status legend:
 | SingleCare / RxSaver-style cards | Curate now / Partner later | Additional cash discount comparisons | Daily/weekly if live; monthly if manual | Same cash-vs-insurance warnings. |
 | Mark Cuban Cost Plus Drugs | Curate now | Transparent cash pricing for covered meds | Monthly | Cash path; may not count toward insurance progress. |
 | Manufacturer direct cash programs | Curate now | Brand-specific cash pathways | Monthly | Prices and eligibility can change quickly. |
+| Ozempic / NovoCare cost and savings pages | Curate now | Ozempic commercial savings, self-pay bands, and deductible/OOP caveats | Monthly and before demos | Use as public estimate bands only; not a live plan claim. |
 | Amazon Pharmacy / RxPass-style programs | Curate now | Cash/subscription comparison for eligible meds | Monthly | Usually best for common generics, not specialty biologics. |
+
+## Clinical Alternative Context
+
+| Source | Status | Use | Review cadence | Notes |
+|---|---|---|---|---|
+| ADA Standards of Care pharmacologic treatment chapter | Curate now | Diabetes medication class context for prescriber-discussion alternatives | Annually and when living standards update | Do not present as a patient-specific substitution recommendation. |
 
 ## Assistance Programs
 

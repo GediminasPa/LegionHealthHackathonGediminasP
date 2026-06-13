@@ -18,6 +18,7 @@ from app.schemas import (
     MedicationAffordabilityDemoCase,
     MedicationAffordabilityMessageCreate,
     MedicationAffordabilityMessageRead,
+    MedicationAffordabilityResourceConnection,
     MedicationAffordabilityRunRequest,
     MedicationAffordabilitySessionCreate,
     MedicationAffordabilitySessionCreateResponse,
@@ -25,6 +26,7 @@ from app.schemas import (
     MedicationAffordabilitySessionSummary,
 )
 from app.services import medication_affordability_sessions as med_sessions
+from app.services.medication_affordability_resources import list_resource_connections
 
 router = APIRouter(prefix="/api/medication-affordability", tags=["medication-affordability"])
 
@@ -32,6 +34,14 @@ router = APIRouter(prefix="/api/medication-affordability", tags=["medication-aff
 @router.get("/demo-cases")
 async def list_demo_cases() -> list[MedicationAffordabilityDemoCase]:
     return med_sessions.list_demo_cases()
+
+
+@router.get("/resources")
+async def list_resources() -> list[MedicationAffordabilityResourceConnection]:
+    return [
+        MedicationAffordabilityResourceConnection.model_validate(resource)
+        for resource in list_resource_connections()
+    ]
 
 
 @router.post("/sessions", status_code=201)

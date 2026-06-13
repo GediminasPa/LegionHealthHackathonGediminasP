@@ -64,3 +64,16 @@ Checked June 13, 2026.
 - HHS OIG report on manufacturer copayment coupons and Part D.  
   https://oig.hhs.gov/reports/all/2014/manufacturer-safeguards-may-not-prevent-copayment-coupon-use-for-part-d-drugs/
 
+## Ozempic before-fill demo
+
+- Ozempic cost and coverage page. Publicly lists commercial savings and self-pay price bands; use as estimates to verify, not as live adjudicated pricing.
+  https://www.ozempic.com/savings-and-resources/save-on-ozempic.html
+
+- Ozempic Savings Offer terms and conditions. Shows commercial/government eligibility limits and warns that self-pay offer fills do not count toward deductibles or out-of-pocket maximums.
+  https://www.novocare.com/content/dam/novocare/diabetes_savings_card_program_tcs_version1_novocare_retail.pdf
+
+- ADA Standards of Care in Diabetes, pharmacologic treatment chapter. Use only for prescriber-discussion alternative classes in type 2 diabetes; do not treat as a patient-specific substitution rule.
+  https://diabetesjournals.org/care/article/49/Supplement_1/S183/163934/9-Pharmacologic-Approaches-to-Glycemic-Treatment
+
+- Cost Plus Drugs medication search. Useful for checking transparent cash prices on generic alternatives such as metformin, with cash-vs-insurance caveats.
+  https://www.costplusdrugs.com/medications/

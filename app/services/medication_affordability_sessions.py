@@ -371,11 +371,130 @@ async def run_mock_investigation(
                 },
             )
 
+        analysis = analyze_case(intake_data)
+        case_moment = analysis.case_moment
         is_medicare = "medicare" in intake.insurance_type.lower()
         has_accumulator = extract_facts_from_pasted_text(intake.pasted_text)[
             "has_accumulator_signal"
         ]
-        if is_medicare:
+        if case_moment == "before_fill":
+            if _is_ozempic_intake(intake_data):
+                option = {
+                    "id": "ozempic-prefill-alternatives-and-estimates",
+                    "title": "Ozempic pre-fill alternatives and estimates",
+                    "rank": 1,
+                    "summary": (
+                        "Check diagnosis fit, PA/ST/QL, covered commercial savings, NovoCare "
+                        "self-pay bands, cash discount checks, and prescriber-approved diabetes "
+                        "alternatives before the first fill."
+                    ),
+                    "confidence": "needs_user_confirmation",
+                    "drop_type": "unknown",
+                    "price_estimates": [
+                        {
+                            "route": "Covered commercial plan plus savings offer",
+                            "estimated_price_cents": 2500,
+                            "caveat": (
+                                "Only if the plan covers Ozempic and the patient meets current "
+                                "commercial offer terms; monthly savings caps still apply."
+                            ),
+                        },
+                        {
+                            "route": "NovoCare self-pay starter fills",
+                            "estimated_price_cents": 19900,
+                            "caveat": (
+                                "Current public offer for eligible new Ozempic pen patients; "
+                                "limited to starter fills and must be rechecked."
+                            ),
+                        },
+                        {
+                            "route": "NovoCare self-pay 0.25 mg, 0.5 mg, or 1 mg pen",
+                            "estimated_price_cents": 34900,
+                            "caveat": (
+                                "Current public monthly self-pay band after starter offer; "
+                                "does not count toward deductible or OOP maximum."
+                            ),
+                        },
+                        {
+                            "route": "NovoCare self-pay 2 mg pen",
+                            "estimated_price_cents": 49900,
+                            "caveat": (
+                                "Current public monthly self-pay band for 2 mg pen; does not "
+                                "count toward deductible or OOP maximum."
+                            ),
+                        },
+                    ],
+                    "source_ids": [source.id for source in saved_sources],
+                }
+                cost_tracker = {
+                    "quoted_price_cents": intake.quoted_price_cents,
+                    "current_best_label": "Demo best estimate: commercial savings route",
+                    "current_best_estimated_price_cents": 2500,
+                    "potential_drop_cents": None,
+                    "drop_type": "price_reduction",
+                    "confidence": "found_source",
+                    "explanation": (
+                        "Demo mode is using the lowest public estimate band: an eligible "
+                        "covered-commercial savings route. Verify coverage, PA/ST/QL, preferred "
+                        "pharmacy, monthly caps, and whether a self-pay fallback would miss "
+                        "deductible or OOP credit before treating it as a real claim result."
+                    ),
+                    "source_ids": [source.id for source in saved_sources],
+                }
+            else:
+                option = {
+                    "id": "pre-fill-price-and-access-check",
+                    "title": "Pre-fill price and access check",
+                    "rank": 1,
+                    "summary": (
+                        "Compare likely plan blockers, generic or clinically appropriate "
+                        "alternative routes, and cash-vs-insurance tradeoffs before the "
+                        "prescription is filled."
+                    ),
+                    "confidence": "needs_user_confirmation",
+                    "drop_type": "unknown",
+                    "source_ids": [source.id for source in saved_sources],
+                }
+                cost_tracker = {
+                    "quoted_price_cents": intake.quoted_price_cents,
+                    "current_best_label": "Estimate before first fill",
+                    "current_best_estimated_price_cents": None,
+                    "potential_drop_cents": None,
+                    "drop_type": "unknown",
+                    "confidence": "needs_user_confirmation",
+                    "explanation": (
+                        "No pharmacy quote is available yet. Confirm the plan claim, preferred "
+                        "pharmacy, and cash comparison before calling this a savings result."
+                    ),
+                    "source_ids": [source.id for source in saved_sources],
+                }
+        elif case_moment == "coupon_behavior" or has_accumulator:
+            option = {
+                "id": "accumulator-maximizer-check",
+                "title": "Accumulator or maximizer check",
+                "rank": 1,
+                "summary": (
+                    "Manufacturer support may lower today's charge, but the pasted language "
+                    "suggests it may not count toward deductible or out-of-pocket progress."
+                ),
+                "confidence": "needs_user_confirmation",
+                "drop_type": "unknown",
+                "source_ids": [source.id for source in saved_sources],
+            }
+            cost_tracker = {
+                "quoted_price_cents": intake.quoted_price_cents,
+                "current_best_label": "Coupon behavior needs plan confirmation",
+                "current_best_estimated_price_cents": None,
+                "potential_drop_cents": None,
+                "drop_type": "unknown",
+                "confidence": "needs_user_confirmation",
+                "explanation": (
+                    "Confirm whether assistance counts toward deductible and out-of-pocket "
+                    "maximum before treating the coupon as true savings."
+                ),
+                "source_ids": [source.id for source in saved_sources],
+            }
+        elif is_medicare:
             option = {
                 "id": "medicare-payment-plan",
                 "title": "Medicare Prescription Payment Plan",
@@ -402,31 +521,27 @@ async def run_mock_investigation(
             }
         else:
             option = {
-                "id": "commercial-copay-support-with-warning",
-                "title": "Commercial support plus accumulator check",
+                "id": "commercial-sticker-shock-routing",
+                "title": "Commercial sticker-shock routing",
                 "rank": 1,
                 "summary": (
-                    "Manufacturer support may lower today's charge if the patient is eligible, "
-                    "but the pasted plan language suggests deductible/OOP credit may be limited."
+                    "Rank insurance processing, cash pricing, manufacturer support, plan "
+                    "exception, and prescriber alternatives before choosing a route."
                 ),
-                "confidence": (
-                    "needs_user_confirmation" if has_accumulator else "eligibility_unknown"
-                ),
+                "confidence": "eligibility_unknown",
                 "drop_type": "unknown",
                 "source_ids": [source.id for source in saved_sources],
             }
             cost_tracker = {
                 "quoted_price_cents": intake.quoted_price_cents,
-                "current_best_label": (
-                    "Commercial support route needs eligibility and plan confirmation"
-                ),
+                "current_best_label": ("Commercial route needs eligibility and plan confirmation"),
                 "current_best_estimated_price_cents": None,
                 "potential_drop_cents": None,
                 "drop_type": "unknown",
                 "confidence": "needs_user_confirmation",
                 "explanation": (
-                    "Confirm copay-program eligibility and accumulator/maximizer rules before "
-                    "estimating today's charge or deductible/OOP credit."
+                    "Confirm coverage status, coupon eligibility, cash price, and deductible or "
+                    "out-of-pocket impact before estimating the best option."
                 ),
                 "source_ids": [source.id for source in saved_sources],
             }
@@ -495,6 +610,11 @@ async def run_mock_investigation(
     except Exception as exc:
         await _mark_run_failed(db, run, str(exc))
         yield _event("run_error", session_id, run.id, {"status": "failed", "message": str(exc)})
+
+
+def _is_ozempic_intake(intake: MedicationAffordabilityIntakeCreate) -> bool:
+    medication = intake.medication_name.lower()
+    return "ozempic" in medication or "semaglutide" in medication
 
 
 async def run_agent_investigation(

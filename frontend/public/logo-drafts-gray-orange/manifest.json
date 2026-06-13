@@ -1,0 +1,38 @@
+[
+  {
+    "file": "frontend/public/logo-drafts-gray-orange/copayguard-gray-orange-01-friendly-guardian.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: second-round product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nPrimary request: remake the previous mascot-with-shield logo concepts in a gray and orange brand palette\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible, suitable for an app icon and website header\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple warm off-white or very light gray background, strong readable shape at small size\nColor palette: graphite gray, charcoal, soft silver gray, warm safety orange, muted amber, off-white; orange should be the accent and shield highlight, gray should carry the main body/outline; no teal, blue, green, purple, or red\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no red cross branding, shield must be prominent, use fewer details than the previous draft\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text, tiny marks that disappear at icon size\nConcept direction: a friendly round guardian character with a small cape, confidently holding a clean shield with a subtle check/protection symbol in orange, approachable and trustworthy.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-gray-orange/copayguard-gray-orange-02-robot-advocate.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: second-round product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nPrimary request: remake the previous mascot-with-shield logo concepts in a gray and orange brand palette\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible, suitable for an app icon and website header\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple warm off-white or very light gray background, strong readable shape at small size\nColor palette: graphite gray, charcoal, soft silver gray, warm safety orange, muted amber, off-white; orange should be the accent and shield highlight, gray should carry the main body/outline; no teal, blue, green, purple, or red\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no red cross branding, shield must be prominent, use fewer details than the previous draft\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text, tiny marks that disappear at icon size\nConcept direction: a compact helpful robot advocate with expressive eyes, one hand holding a protective shield, the other holding a simplified receipt/checkmark motif, sleek and product-like, less busy than the first robot draft.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-gray-orange/copayguard-gray-orange-03-pill-paladin.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: second-round product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nPrimary request: remake the previous mascot-with-shield logo concepts in a gray and orange brand palette\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible, suitable for an app icon and website header\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple warm off-white or very light gray background, strong readable shape at small size\nColor palette: graphite gray, charcoal, soft silver gray, warm safety orange, muted amber, off-white; orange should be the accent and shield highlight, gray should carry the main body/outline; no teal, blue, green, purple, or red\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no red cross branding, shield must be prominent, use fewer details than the previous draft\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text, tiny marks that disappear at icon size\nConcept direction: a tasteful pill-shaped animated character, not cartoonish, holding a shield that suggests savings/protection through a subtle orange coin/check motif, memorable startup mascot.",
+    "revised_prompt": ""
+  },
+  {
+    "file": "frontend/public/logo-drafts-gray-orange/copayguard-gray-orange-04-shield-helper.jpg",
+    "model": "grok-imagine-image-quality",
+    "aspect_ratio": "1:1",
+    "resolution": "1k",
+    "mime_type": "image/jpeg",
+    "prompt": "Use case: logo-brand\nAsset type: second-round product logo mascot exploration for CopayGuard, a healthcare cost/copay protection product\nPrimary request: remake the previous mascot-with-shield logo concepts in a gray and orange brand palette\nStyle/medium: polished 2D animated character mascot logo, vector-friendly, clean silhouette, modern fintech-healthcare brand, friendly but credible, suitable for an app icon and website header\nComposition/framing: centered mascot holding a shield, full character visible, generous padding, simple warm off-white or very light gray background, strong readable shape at small size\nColor palette: graphite gray, charcoal, soft silver gray, warm safety orange, muted amber, off-white; orange should be the accent and shield highlight, gray should carry the main body/outline; no teal, blue, green, purple, or red\nConstraints: no written text, no letters, no watermark, no photorealism, no busy background, no red cross branding, shield must be prominent, use fewer details than the previous draft\nAvoid: scary, childish, hospital logo clone, insurance-company generic, cluttered details, fake text, tiny marks that disappear at icon size\nConcept direction: a minimal human-like helper character emerging from behind a large shield, shield is the hero shape, calm posture, premium app logo feel, bold geometry and sparse details.",
+    "revised_prompt": ""
+  }
+]

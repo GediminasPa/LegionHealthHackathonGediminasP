@@ -1,0 +1,76 @@
+- generic [ref=e3] [box=0,0,1200,854]:
+  - banner [ref=e4] [box=0,0,1200,69]:
+    - generic [ref=e5] [box=0,0,1200,68]:
+      - generic [ref=e6] [box=24,12,223,44]:
+        - paragraph [ref=e7] [box=24,12,223,16]: medication affordability
+        - heading "Investigation workspace" [level=1] [ref=e8] [box=24,28,223,28]
+      - generic [ref=e9] [box=1086,21,90,26]: API + DB ok
+  - main [ref=e10] [box=24,69,1152,785]:
+    - generic [ref=e11] [box=48,93,432,737]:
+      - button "Start blank case" [ref=e12] [box=48,93,157,38]:
+        - img [ref=e13] [box=61,104,16,16]
+        - text: Start blank case
+      - button "Medicare Enbrel / Wellcare PA approved, high Part D specialty cost, and Medicare-specific assistance paths." [ref=e62] [box=48,143,432,110]:
+        - generic [ref=e63] [box=65,160,203,20]:
+          - img [ref=e64] [box=65,162,16,16]
+          - text: Medicare Enbrel / Wellcare
+        - generic [ref=e67] [box=65,188,398,48]: PA approved, high Part D specialty cost, and Medicare-specific assistance paths.
+      - button "Commercial Enbrel accumulator / maximizer Employer PPO specialty case with plan language suggesting accumulator or maximizer rules." [ref=e68] [box=48,265,432,110]:
+        - generic [ref=e69] [box=65,282,320,20]:
+          - img [ref=e70] [box=65,284,16,16]
+          - text: Commercial Enbrel accumulator / maximizer
+        - generic [ref=e73] [box=65,310,398,48]: Employer PPO specialty case with plan language suggesting accumulator or maximizer rules.
+    - generic [ref=e16] [box=504,93,648,737]:
+      - generic [ref=e17] [box=525,114,606,637]:
+        - generic [ref=e18] [box=525,114,295,68]:
+          - generic [ref=e19] [box=525,114,295,20]: Patient
+          - textbox "Patient" [ref=e20] [box=525,140,295,42]
+        - generic [ref=e21] [box=836,114,295,68]:
+          - generic [ref=e22] [box=836,114,295,20]: State
+          - textbox "State" [ref=e23] [box=836,140,295,42]: CA
+        - generic [ref=e24] [box=525,198,295,68]:
+          - generic [ref=e25] [box=525,198,295,20]: Medication
+          - textbox "Medication" [ref=e26] [box=525,224,295,42]
+        - generic [ref=e27] [box=836,198,295,68]:
+          - generic [ref=e28] [box=836,198,295,20]: Strength
+          - textbox "Strength" [ref=e29] [box=836,224,295,42]
+        - generic [ref=e30] [box=525,282,295,68]:
+          - generic [ref=e31] [box=525,282,295,20]: Dose
+          - textbox "Dose" [ref=e32] [box=525,308,295,42]
+        - generic [ref=e33] [box=836,282,295,68]:
+          - generic [ref=e34] [box=836,282,295,20]: Quoted price
+          - spinbutton "Quoted price" [ref=e35] [box=836,308,295,42]: "0"
+        - generic [ref=e36] [box=525,366,295,63]:
+          - generic [ref=e37] [box=525,366,295,20]: Insurance
+          - combobox "Insurance" [ref=e38] [box=525,392,295,37]:
+            - option "Commercial" [selected] [box=0,0,0,0]
+            - option "Medicare Part D" [box=0,0,0,0]
+            - option "Medicaid" [box=0,0,0,0]
+            - option "Cash pay" [box=0,0,0,0]
+            - option "Other" [box=0,0,0,0]
+        - generic [ref=e39] [box=836,366,295,63]:
+          - generic [ref=e40] [box=836,366,295,20]: PA status
+          - combobox "PA status" [ref=e41] [box=836,392,295,37]:
+            - option "approved" [box=0,0,0,0]
+            - option "pending" [box=0,0,0,0]
+            - option "denied" [box=0,0,0,0]
+            - option "unknown" [selected] [box=0,0,0,0]
+        - generic [ref=e42] [box=525,445,295,68]:
+          - generic [ref=e43] [box=525,445,295,20]: Plan name
+          - textbox "Plan name" [ref=e44] [box=525,471,295,42]
+        - generic [ref=e45] [box=836,445,295,68]:
+          - generic [ref=e46] [box=836,445,295,20]: Plan ID
+          - textbox "Plan ID" [ref=e47] [box=836,471,295,42]
+        - generic [ref=e48] [box=525,529,295,68]:
+          - generic [ref=e49] [box=525,529,295,20]: Diagnosis
+          - textbox "Diagnosis" [ref=e50] [box=525,555,295,42]
+        - generic [ref=e51] [box=525,613,606,138]:
+          - generic [ref=e52] [box=525,613,606,20]: Pasted plan/pharmacy text
+          - textbox "Pasted plan/pharmacy text" [ref=e53] [box=525,639,606,112]
+      - generic [ref=e54] [box=525,771,606,38]:
+        - button "Start Investigation" [disabled] [ref=e55] [box=525,772,180,36]:
+          - img [ref=e56] [box=541,782,16,16]
+          - text: Start Investigation
+        - button "Reset" [ref=e58] [box=717,771,87,38]:
+          - img [ref=e59] [box=730,782,16,16]
+          - text: Reset
