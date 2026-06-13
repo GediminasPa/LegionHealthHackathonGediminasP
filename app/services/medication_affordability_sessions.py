@@ -18,6 +18,7 @@ from app.agents.medication_affordability import (
     draft_next_artifact,
     extract_facts_from_pasted_text,
     medication_affordability_agent,
+    patient_display_name,
     public_program_copay_guardrail,
 )
 from app.models import (
@@ -60,7 +61,8 @@ def list_demo_cases() -> list[MedicationAffordabilityDemoCase]:
 
 
 def default_session_title(intake: MedicationAffordabilityIntakeCreate) -> str:
-    return f"{intake.patient_name} - {intake.medication_name}"
+    patient = patient_display_name(intake.patient_name, "")
+    return f"{patient} - {intake.medication_name}" if patient else intake.medication_name
 
 
 def generate_access_token() -> str:
@@ -321,7 +323,8 @@ async def run_mock_investigation(
         )
 
         intro = (
-            f"I am investigating {intake.medication_name} for {intake.patient_name}. "
+            f"I am investigating {intake.medication_name} for "
+            f"{patient_display_name(intake.patient_name)}. "
             "I will separate true price reductions from payment smoothing and "
             "eligibility-dependent help."
         )

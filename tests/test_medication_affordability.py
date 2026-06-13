@@ -95,6 +95,22 @@ async def test_session_create_read_and_message_append(client: httpx.AsyncClient)
     assert body["case_state"]["state_json"]["cost_tracker"]["quoted_price_cents"] == 210000
 
 
+async def test_session_create_allows_missing_patient_name(client: httpx.AsyncClient) -> None:
+    payload = _demo_payload()
+    intake = payload["intake"]
+    assert isinstance(intake, dict)
+    intake.pop("patient_name")
+
+    created = await client.post("/api/medication-affordability/sessions", json=payload)
+
+    assert created.status_code == 201
+    session_id = created.json()["session_id"]
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    body = detail.json()
+    assert body["intake"]["patient_name"] == ""
+    assert body["session"]["title"] == "Enbrel SureClick 50 mg/mL"
+
+
 async def test_run_stream_emits_typed_events_and_persists_state(
     client: httpx.AsyncClient,
 ) -> None:

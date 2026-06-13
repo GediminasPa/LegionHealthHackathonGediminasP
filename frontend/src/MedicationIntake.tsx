@@ -54,14 +54,12 @@ export default function MedicationIntake({
   }
 
   const requiredMissing =
-    !intake.patientName.trim() ||
     !intake.state.trim() ||
     !intake.medicationName.trim() ||
     intake.quotedPriceCents <= 0 ||
     !intake.insuranceType.trim();
 
   const requiredComplete = [
-    intake.patientName.trim(),
     intake.state.trim(),
     intake.medicationName.trim(),
     intake.quotedPriceCents > 0,
@@ -150,7 +148,7 @@ export default function MedicationIntake({
       >
               <div className="grid gap-4 lg:grid-cols-12">
                 <Panel className="lg:col-span-4" title="Client">
-                  <Field label="Patient name" required>
+                  <Field label="Patient name">
             <input
               className="evidence-field ui-sans"
               value={intake.patientName}
@@ -284,7 +282,7 @@ export default function MedicationIntake({
                 <span className="flex items-center gap-2 text-sm text-[#c7c0b8]">
                   <ShieldCheck size={16} className="text-[#ef6844]" />
                   <span>
-                    <span className="font-semibold text-[#f7f2ec]">{requiredComplete}/5</span> required fields ready
+                    <span className="font-semibold text-[#f7f2ec]">{requiredComplete}/4</span> required fields ready
                   </span>
                 </span>
                 <div className="flex flex-wrap items-center gap-2">

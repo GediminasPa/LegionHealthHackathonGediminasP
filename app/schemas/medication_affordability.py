@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MessageRole = Literal["user", "assistant", "system"]
 RunStatus = Literal["running", "completed", "failed"]
@@ -47,7 +47,7 @@ class CostTrackerState(BaseModel):
 
 
 class MedicationAffordabilityIntakeCreate(BaseModel):
-    patient_name: str = Field(min_length=1, max_length=200)
+    patient_name: str = Field(default="", max_length=200)
     state: str = Field(min_length=1, max_length=100)
     medication_name: str = Field(min_length=1, max_length=250)
     strength: str | None = Field(default=None, max_length=150)
@@ -59,6 +59,15 @@ class MedicationAffordabilityIntakeCreate(BaseModel):
     plan_id: str | None = Field(default=None, max_length=100)
     diagnosis: str | None = Field(default=None, max_length=250)
     pasted_text: str | None = None
+
+    @field_validator("patient_name", mode="before")
+    @classmethod
+    def normalize_patient_name(cls, value: Any) -> Any:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
 
 class MedicationAffordabilityIntakeRead(MedicationAffordabilityIntakeCreate):

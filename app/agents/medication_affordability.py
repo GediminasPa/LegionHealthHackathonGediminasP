@@ -154,7 +154,7 @@ def build_medication_agent_prompt(
             "use unknown or needs_user_confirmation when eligibility is unresolved.",
             "",
             "Current intake:",
-            f"- Patient/display name: {intake.patient_name}",
+            f"- Patient/display name: {patient_display_name(intake.patient_name, 'not provided')}",
             f"- State: {intake.state}",
             f"- Medication: {medication_label(_intake_create_from_model(intake))}",
             f"- Quoted price cents: {intake.quoted_price_cents}",
@@ -174,13 +174,14 @@ def build_medication_agent_prompt(
 
 def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str, str]:
     medication = medication_label(intake)
+    patient = patient_display_name(intake.patient_name, "Not provided")
     if "medicare" in intake.insurance_type.lower():
         return {
             "artifact_type": "checklist",
             "title": "Medicare affordability call checklist",
             "content": "\n".join(
                 [
-                    f"Patient: {intake.patient_name}",
+                    f"Patient: {patient}",
                     f"Medication: {medication}",
                     "",
                     "Ask the plan:",
@@ -200,7 +201,7 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
         "title": "Accumulator plan-call script",
         "content": "\n".join(
             [
-                f"Patient: {intake.patient_name}",
+                f"Patient: {patient}",
                 f"Medication: {medication}",
                 "",
                 "Ask the plan or PBM:",
@@ -246,6 +247,11 @@ def medication_label(intake: MedicationAffordabilityIntakeCreate) -> str:
     if intake.strength and intake.strength.lower() not in intake.medication_name.lower():
         return f"{intake.medication_name} {intake.strength}"
     return intake.medication_name
+
+
+def patient_display_name(patient_name: str | None, fallback: str = "the patient") -> str:
+    value = (patient_name or "").strip()
+    return value or fallback
 
 
 @medication_affordability_agent.tool(sequential=True)
