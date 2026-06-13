@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -60,6 +61,10 @@ def list_demo_cases() -> list[MedicationAffordabilityDemoCase]:
 
 def default_session_title(intake: MedicationAffordabilityIntakeCreate) -> str:
     return f"{intake.patient_name} - {intake.medication_name}"
+
+
+def generate_access_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def build_initial_case_state(intake: MedicationAffordabilityIntakeCreate) -> dict[str, Any]:
@@ -127,6 +132,7 @@ async def create_session(
     session_obj = MedicationAffordabilitySession(
         title=data.title or default_session_title(data.intake),
         status="open",
+        access_token=generate_access_token(),
     )
     db.add(session_obj)
     await db.flush()

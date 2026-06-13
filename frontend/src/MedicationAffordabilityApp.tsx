@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FilePlus2 } from "lucide-react";
 import { PRODUCT_LOGO_SRC, PRODUCT_NAME } from "./brand";
 import MedicationIntake from "./MedicationIntake";
 import MedicationWorkspace from "./MedicationWorkspace";
@@ -58,6 +59,15 @@ export default function MedicationAffordabilityApp() {
               </h1>
             </div>
           </div>
+          <button
+            className="button-press ui-sans inline-flex min-h-11 shrink-0 items-center gap-2 border border-white/12 bg-[#302e2c] px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-[#f7f2ec] hover:border-[#ef6844]/70"
+            type="button"
+            onClick={() => setSnapshot(null)}
+          >
+            <FilePlus2 size={16} />
+            <span className="hidden sm:inline">New case</span>
+            <span className="sm:hidden">New</span>
+          </button>
         </div>
       </header>
 
