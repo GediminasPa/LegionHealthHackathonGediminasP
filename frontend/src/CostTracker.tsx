@@ -3,40 +3,48 @@ import type { CostTrackerState } from "./medicationTypes";
 
 export default function CostTracker({ tracker }: { tracker: CostTrackerState }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+    <section className="medical-surface rounded-lg p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-950">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-[#f7f2ec]">
             <WalletCards size={16} />
             Cost tracker
           </h2>
-          <p className="mt-1 text-sm text-stone-600">{tracker.currentBestLabel}</p>
+          <p className="ui-sans mt-1 text-sm leading-6 text-[#c7c0b8]">{tracker.currentBestLabel}</p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
-            quote
-          </div>
-          <div className="text-2xl font-semibold">{formatCents(tracker.quotedPriceCents)}</div>
+        <div className="rounded-2xl border border-white/14 bg-white/5 px-4 py-3 text-right">
+          <div className="ui-sans text-xs font-semibold text-[#c7c0b8]">Quote</div>
+          <div className="text-2xl font-semibold text-[#f7f2ec]">{formatCents(tracker.quotedPriceCents)}</div>
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Metric label="best estimate" value={formatMaybeCents(tracker.currentBestEstimatedPriceCents)} />
-        <Metric label="potential drop" value={formatMaybeCents(tracker.potentialDropCents)} />
-        <Metric label="type" value={labelize(tracker.dropType)} />
+        <Metric label="Best estimate" value={formatMaybeCents(tracker.currentBestEstimatedPriceCents)} />
+        <Metric label="Potential drop" value={formatMaybeCents(tracker.potentialDropCents)} tone="success" />
+        <Metric label="Path type" value={labelize(tracker.dropType)} />
       </div>
-      <p className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm leading-6 text-teal-950">
-        <TrendingDown className="mr-2 inline" size={15} />
-        {tracker.explanation}
-      </p>
+      <div className="ui-sans mt-4 flex items-start gap-3 rounded-2xl border border-[#ef6844]/35 bg-[#3a302c] px-4 py-3 text-sm leading-6 text-[#ffd5c9]">
+        <TrendingDown className="mt-1 shrink-0 text-[#ef6844]" size={16} />
+        <p>{tracker.explanation}</p>
+      </div>
     </section>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "success";
+}) {
   return (
-    <div className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2">
-      <div className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-stone-950">{value}</div>
+    <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-3">
+      <div className="ui-sans text-xs font-semibold text-[#c7c0b8]">{label}</div>
+      <div className={`mt-1 text-base font-semibold ${tone === "success" ? "text-[#76d7a6]" : "text-[#f7f2ec]"}`}>
+        {value}
+      </div>
     </div>
   );
 }

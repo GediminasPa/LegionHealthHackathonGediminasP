@@ -3,24 +3,36 @@ import type { SourceRecord } from "./medicationTypes";
 
 export default function SourcesPanel({ sources }: { sources: SourceRecord[] }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-stone-950">Sources</h2>
+    <section className="medical-surface rounded-lg p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-[#f7f2ec]">Sources</h2>
+        <span className="ui-sans rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[#c7c0b8]">
+          {sources.length} checked
+        </span>
+      </div>
       <div className="mt-3 space-y-3">
-        {sources.length === 0 ? <p className="text-sm text-stone-600">No sources yet.</p> : null}
+        {sources.length === 0 ? (
+          <p className="ui-sans rounded-2xl border border-dashed border-white/18 bg-white/5 p-3 text-sm text-[#c7c0b8]">
+            No sources yet.
+          </p>
+        ) : null}
         {sources.map((source) => (
           <a
-            className="block rounded-md border border-stone-200 bg-stone-50 p-3 hover:border-teal-600"
+            className="button-press block rounded-2xl border border-white/12 bg-white/5 p-4 hover:border-[#ef6844]/45 hover:bg-[#342d2a]"
             href={source.url}
             key={source.id}
             rel="noreferrer"
             target="_blank"
           >
-            <span className="flex items-start justify-between gap-2 text-sm font-semibold text-stone-950">
+            <span className="flex items-start justify-between gap-2 text-sm font-semibold text-[#f7f2ec]">
               {source.title}
-              <ExternalLink className="shrink-0 text-stone-500" size={15} />
+              <ExternalLink className="shrink-0 text-[#c7c0b8]" size={15} />
             </span>
+            {source.publisher ? (
+              <span className="ui-sans mt-1 block text-xs font-semibold text-[#ef6844]">{source.publisher}</span>
+            ) : null}
             {source.summary ? (
-              <span className="mt-1 block text-sm leading-6 text-stone-600">{source.summary}</span>
+              <span className="ui-sans mt-1 block text-sm leading-6 text-[#c7c0b8]">{source.summary}</span>
             ) : null}
           </a>
         ))}
