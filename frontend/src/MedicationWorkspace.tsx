@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, ClipboardList, FileText, MessageCircle } from "lucide-react";
 import { postMedicationMessage, streamMedicationRun } from "./api";
 import ActivityFeed from "./ActivityFeed";
 import AgentChatPanel from "./AgentChatPanel";
@@ -22,6 +23,13 @@ type Props = {
 };
 
 type Tab = "chat" | "case" | "activity" | "artifact";
+
+const mobileTabs: Array<{ id: Tab; label: string; icon: typeof MessageCircle }> = [
+  { id: "chat", label: "Chat", icon: MessageCircle },
+  { id: "case", label: "Case", icon: ClipboardList },
+  { id: "activity", label: "Activity", icon: Activity },
+  { id: "artifact", label: "Drafts", icon: FileText },
+];
 
 export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   const [running, setRunning] = useState(false);
@@ -155,41 +163,51 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   }
 
   return (
-    <main className="mx-auto grid h-[calc(100vh-73px)] max-w-[1500px] gap-0 px-0 lg:grid-cols-[minmax(380px,44%)_1fr]">
-      <div className="hidden min-h-0 border-r border-stone-200 bg-white lg:block">
+    <main className="mx-auto grid h-[calc(100dvh-65px)] max-w-[1500px] gap-0 bg-[#1f1e1d] px-0 lg:grid-cols-[minmax(390px,42%)_1fr]">
+      <div className="hidden min-h-0 border-r border-white/12 bg-[#252321] lg:block">
         <AgentChatPanel messages={snapshot.messages} onSend={handleSend} running={running} />
       </div>
 
-      <div className="min-h-0 overflow-hidden">
-        <div className="border-b border-stone-200 bg-white p-3 lg:hidden">
-          <div className="grid grid-cols-4 gap-1 rounded-md bg-stone-100 p-1">
-            {(["chat", "case", "activity", "artifact"] as const).map((tab) => (
+      <div className="flex min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0 border-b border-white/12 bg-[#1f1e1d] p-3 lg:hidden">
+          <div className="ui-sans grid grid-cols-4 gap-1 rounded-full border border-white/10 bg-[#2b2928] p-1">
+            {mobileTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
               <button
-                className={`rounded px-2 py-2 text-xs font-semibold ${
-                  activeTab === tab ? "bg-white text-teal-800 shadow-sm" : "text-stone-600"
+                className={`button-press flex min-h-10 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-semibold ${
+                  activeTab === tab.id
+                    ? "bg-[#ef6844] text-white shadow-sm"
+                    : "text-[#c7c0b8] hover:bg-white/6"
                 }`}
-                key={tab}
+                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(tab.id)}
               >
-                {tab}
+                <Icon size={14} />
+                <span className="hidden min-[360px]:inline">{tab.label}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <div className={activeTab === "chat" ? "h-full lg:hidden" : "hidden"}>
+        <div className={activeTab === "chat" ? "min-h-0 flex-1 lg:hidden" : "hidden"}>
           <AgentChatPanel messages={snapshot.messages} onSend={handleSend} running={running} />
         </div>
 
         <div
-          className={`h-full overflow-y-auto p-4 sm:p-5 ${
+          className={`scrollbar-soft min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 ${
             activeTab === "chat" ? "hidden lg:block" : ""
           }`}
         >
-          <div className="grid gap-4">
+          <div className="grid gap-4 pb-6">
             <CostTracker tracker={snapshot.costTracker} />
-            <div className={activeTab === "case" || activeTab === "chat" ? "grid gap-4" : "hidden lg:grid lg:gap-4"}>
+            <div
+              className={
+                activeTab === "case" || activeTab === "chat" ? "grid gap-4" : "hidden lg:grid lg:gap-4"
+              }
+            >
               <CaseDashboard intake={snapshot.intake} flags={snapshot.flags} status={snapshot.status} />
               <OptionsBoard options={snapshot.options} />
               <SourcesPanel sources={snapshot.sources} />

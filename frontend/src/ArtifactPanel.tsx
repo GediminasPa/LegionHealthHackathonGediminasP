@@ -3,29 +3,38 @@ import type { ArtifactRecord } from "./medicationTypes";
 
 export default function ArtifactPanel({ artifacts }: { artifacts: ArtifactRecord[] }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-stone-950">Artifacts</h2>
+    <section className="medical-surface rounded-lg p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-[#f7f2ec]">Draft artifacts</h2>
+        <span className="ui-sans rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[#c7c0b8]">
+          {artifacts.length} ready
+        </span>
+      </div>
       <div className="mt-3 space-y-3">
-        {artifacts.length === 0 ? <p className="text-sm text-stone-600">No artifacts yet.</p> : null}
+        {artifacts.length === 0 ? (
+          <p className="ui-sans rounded-2xl border border-dashed border-white/18 bg-white/5 p-3 text-sm text-[#c7c0b8]">
+            No artifacts yet.
+          </p>
+        ) : null}
         {artifacts.map((artifact) => (
-          <article className="rounded-md border border-stone-200 bg-stone-50 p-3" key={artifact.id}>
+          <article className="rounded-2xl border border-white/12 bg-white/5 p-4" key={artifact.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-stone-950">{artifact.title}</h3>
-                <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
-                  {artifact.artifactType.replaceAll("_", " ")} · {artifact.status}
+                <h3 className="text-sm font-semibold text-[#f7f2ec]">{artifact.title}</h3>
+                <p className="ui-sans mt-1 text-xs font-semibold text-[#c7c0b8]">
+                  {artifact.artifactType.replaceAll("_", " ")} / {artifact.status}
                 </p>
               </div>
               <button
                 aria-label="Copy artifact"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-stone-300 bg-white text-stone-700 hover:border-teal-600 hover:text-teal-800"
+                className="button-press inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/14 bg-[#2f2d2b] text-[#c7c0b8] hover:border-[#ef6844]/60 hover:text-[#ef6844]"
                 type="button"
                 onClick={() => void navigator.clipboard.writeText(artifact.content)}
               >
                 <ClipboardCopy size={16} />
               </button>
             </div>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-sm leading-6 text-stone-800">
+            <pre className="scrollbar-soft ui-sans mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/12 bg-[#211f1e] p-3 text-sm leading-6 text-[#d9d2ca]">
               {artifact.content}
             </pre>
           </article>
