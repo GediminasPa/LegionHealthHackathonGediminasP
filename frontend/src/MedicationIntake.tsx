@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   CheckCircle2,
-  ExternalLink,
   FilePlus2,
   Loader2,
   Play,
@@ -71,8 +70,7 @@ const SCENARIO_OPTIONS: ScenarioOption[] = [
 
 const SCENARIO_NOTE_PREFIX = "CopayGuard use reason:";
 
-const CATALOG_CATEGORY_ORDER = [
-  "Agent runtime",
+const HEALTHCARE_SOURCE_CATEGORIES = new Set([
   "Core public data",
   "Insurance and benefit rails",
   "Cash, coupon, and direct-pay sources",
@@ -80,7 +78,7 @@ const CATALOG_CATEGORY_ORDER = [
   "Assistance programs",
   "Accumulator, maximizer, and AFP detection",
   "Appeals and execution sources",
-];
+]);
 
 export default function MedicationIntake({
   initialIntake,
@@ -171,7 +169,7 @@ export default function MedicationIntake({
 
             <ProductExplainer />
 
-            <AgentConnectionCatalog resources={resources} />
+            <HealthcareLogoMarquee resources={resources} />
 
             <DemoCasePicker
               demoCases={demoCases}
@@ -415,87 +413,39 @@ export default function MedicationIntake({
   );
 }
 
-function AgentConnectionCatalog({ resources }: { resources: MedicationResourceConnection[] }) {
-  const groups = groupResourcesByCategory(resources);
-  const connectedCount = resources.filter((resource) =>
-    resource.status.startsWith("Connected now"),
-  ).length;
-  const curatedCount = resources.filter((resource) =>
-    resource.status.startsWith("Curate now"),
-  ).length;
-  const partnerCount = resources.filter((resource) =>
-    resource.status.includes("Partner later"),
-  ).length;
+function HealthcareLogoMarquee({ resources }: { resources: MedicationResourceConnection[] }) {
+  const healthcareResources = resources.filter((resource) =>
+    HEALTHCARE_SOURCE_CATEGORIES.has(resource.category),
+  );
+  if (healthcareResources.length === 0) return null;
+
+  const marqueeResources = [...healthcareResources, ...healthcareResources];
 
   return (
-    <section className="connection-catalog mt-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-[48rem]">
-          <h2 className="text-3xl font-semibold tracking-[-0.045em] text-[#f7f2ec] sm:text-4xl">
-            Agent connection map
-          </h2>
-          <p className="ui-sans mt-3 text-sm leading-6 text-[#c7c0b8]">
-            CopayGuard uses connected public data, curated affordability sources, and clearly
-            marked partner-only rails.
-          </p>
-        </div>
-        <div className="ui-sans grid min-w-[16rem] grid-cols-3 border border-white/12 bg-[#171615] text-center text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          <span className="px-3 py-2">
-            <strong className="block text-base text-[#f7f2ec]">{connectedCount}</strong>
-            Live
-          </span>
-          <span className="border-x border-white/12 px-3 py-2">
-            <strong className="block text-base text-[#f7f2ec]">{curatedCount}</strong>
-            Curated
-          </span>
-          <span className="px-3 py-2">
-            <strong className="block text-base text-[#f7f2ec]">{partnerCount}</strong>
-            Partner
-          </span>
+    <section className="connection-marquee-section mt-10" aria-label="Connected healthcare sources">
+      <div className="connection-marquee">
+        <div className="connection-marquee-track">
+          {marqueeResources.map((resource, index) => {
+            const duplicate = index >= healthcareResources.length;
+            return (
+              <a
+                aria-hidden={duplicate ? "true" : undefined}
+                aria-label={duplicate ? undefined : resource.name}
+                className="connection-logo-tile button-press"
+                href={resource.url}
+                key={`${resource.id}-${index}`}
+                rel="noreferrer"
+                tabIndex={duplicate ? -1 : undefined}
+                target="_blank"
+                title={resource.name}
+              >
+                <ResourceLogo resource={resource} />
+                <span className="connection-logo-name">{resource.name}</span>
+              </a>
+            );
+          })}
         </div>
       </div>
-
-      {resources.length === 0 ? (
-        <p className="ui-sans mt-5 border border-dashed border-white/12 bg-[#171615] p-4 text-sm text-[#c7c0b8]">
-          Loading connection map.
-        </p>
-      ) : (
-        <div className="mt-5 grid gap-3 xl:grid-cols-2">
-          {groups.map(([category, items]) => (
-            <article className="connection-group" key={category}>
-              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                <h3 className="text-lg font-semibold tracking-[-0.035em] text-[#f7f2ec]">
-                  {category}
-                </h3>
-                <span className="ui-sans shrink-0 text-xs font-semibold uppercase tracking-[0.08em] text-[#8f8780]">
-                  {items.length} sources
-                </span>
-              </div>
-              <div className="grid gap-2 p-3 sm:grid-cols-2">
-                {items.map((resource) => (
-                  <a
-                    className="connection-item button-press"
-                    href={resource.url}
-                    key={resource.id}
-                    rel="noreferrer"
-                    target="_blank"
-                    title={`${resource.use} Review: ${resource.reviewCadence}`}
-                  >
-                    <ResourceLogo resource={resource} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#f7f2ec]">
-                        {resource.name}
-                      </span>
-                      <span className={statusClass(resource.status)}>{resource.status}</span>
-                    </span>
-                    <ExternalLink className="shrink-0 text-[#8f8780]" size={14} />
-                  </a>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -518,26 +468,6 @@ function ResourceLogo({ resource }: { resource: MedicationResourceConnection }) 
   );
 }
 
-function groupResourcesByCategory(
-  resources: MedicationResourceConnection[],
-): Array<[string, MedicationResourceConnection[]]> {
-  const groups = new Map<string, MedicationResourceConnection[]>();
-  for (const resource of resources) {
-    const category = resource.category || "Curated resource";
-    groups.set(category, [...(groups.get(category) ?? []), resource]);
-  }
-
-  return Array.from(groups.entries()).sort(([left], [right]) => {
-    const leftIndex = CATALOG_CATEGORY_ORDER.indexOf(left);
-    const rightIndex = CATALOG_CATEGORY_ORDER.indexOf(right);
-    return (
-      (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) -
-        (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex) ||
-      left.localeCompare(right)
-    );
-  });
-}
-
 function logoUrlFromDomains(domains: string[]): string | null {
   const domain = domains.find(Boolean);
   if (!domain) return null;
@@ -552,16 +482,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function statusClass(status: string): string {
-  const base =
-    "ui-sans mt-1 inline-flex border px-2 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.08em]";
-  if (status.startsWith("Connected now")) return `${base} connection-status-connected`;
-  if (status.startsWith("Curate now")) return `${base} connection-status-curated`;
-  if (status.startsWith("Mock now")) return `${base} connection-status-mock`;
-  if (status.includes("Partner later")) return `${base} connection-status-partner`;
-  return `${base} connection-status-monitor`;
 }
 
 function ReasonDetails({

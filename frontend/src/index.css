@@ -260,57 +260,67 @@
       #221b18;
   }
 
-  .connection-catalog {
+  .connection-marquee-section {
     max-width: 100%;
     min-width: 0;
+    overflow: hidden;
+    border-block: 1px solid rgb(255 255 255 / 0.12);
+    padding-block: 1rem;
   }
 
-  .connection-group {
+  .connection-marquee {
     max-width: 100%;
     min-width: 0;
-    border: 1px solid rgb(255 255 255 / 0.12);
-    background:
-      linear-gradient(135deg, rgb(255 255 255 / 0.035), transparent 44%),
-      #171615;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
 
-  .connection-item {
+  .connection-marquee-track {
     display: flex;
-    max-width: 100%;
-    min-width: 0;
-    min-height: 4.35rem;
+    width: max-content;
+    gap: 0.8rem;
+    animation: connection-marquee 42s linear infinite;
+  }
+
+  .connection-marquee:hover .connection-marquee-track {
+    animation-play-state: paused;
+  }
+
+  .connection-logo-tile {
+    display: inline-flex;
+    height: 5.8rem;
+    width: 7rem;
+    flex: 0 0 auto;
+    flex-direction: column;
     align-items: center;
-    gap: 0.78rem;
+    justify-content: center;
+    gap: 0.48rem;
     border: 1px solid rgb(255 255 255 / 0.1);
-    background: #1f1e1d;
-    padding: 0.72rem;
-    color: #f7f2ec;
+    background: transparent;
     text-decoration: none;
     outline: none;
   }
 
-  .connection-item:hover {
-    border-color: rgb(239 104 68 / 0.58);
-    background:
-      radial-gradient(circle at 12% 0%, rgb(239 104 68 / 0.11), transparent 34%),
-      #252321;
+  .connection-logo-tile:hover {
+    border-color: rgb(239 104 68 / 0.5);
+    background: rgb(255 255 255 / 0.035);
   }
 
-  .connection-item:focus-visible {
+  .connection-logo-tile:focus-visible {
     border-color: #f7f2ec;
     box-shadow: 0 0 0 1px #f7f2ec;
   }
 
   .connection-logo {
     display: inline-flex;
-    height: 2.45rem;
-    width: 2.45rem;
+    height: 2.75rem;
+    width: 2.75rem;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     border: 1px solid rgb(255 255 255 / 0.13);
-    background: #f7f2ec;
-    color: #1f1e1d;
+    background: transparent;
+    color: #f7f2ec;
     font-family:
       "SFMono-Regular", "Roboto Mono", "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
     font-size: 0.72rem;
@@ -320,39 +330,49 @@
 
   .connection-logo img {
     display: block;
-    height: 1.65rem;
-    width: 1.65rem;
+    height: 1.95rem;
+    width: 1.95rem;
     object-fit: contain;
   }
 
-  .connection-status-connected {
-    border-color: rgb(118 215 166 / 0.32);
-    background: rgb(28 52 39 / 0.72);
-    color: #b7f2d1;
-  }
-
-  .connection-status-curated {
-    border-color: rgb(239 104 68 / 0.34);
-    background: #2b1b15;
-    color: #ffd0be;
-  }
-
-  .connection-status-mock {
-    border-color: rgb(255 195 106 / 0.34);
-    background: rgb(54 42 24 / 0.72);
-    color: #ffe0a3;
-  }
-
-  .connection-status-partner {
-    border-color: rgb(199 192 184 / 0.22);
-    background: #302e2c;
+  .connection-logo-name {
+    display: -webkit-box;
+    max-width: 6.35rem;
+    min-height: 1.85rem;
+    overflow: hidden;
     color: #c7c0b8;
+    font-family:
+      "SFMono-Regular", "Roboto Mono", "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 0.92rem;
+    text-align: center;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
-  .connection-status-monitor {
-    border-color: rgb(143 135 128 / 0.26);
-    background: #252321;
-    color: #c7c0b8;
+  @keyframes connection-marquee {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(calc(-50% - 0.4rem));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .connection-marquee {
+      overflow: visible;
+      mask-image: none;
+    }
+
+    .connection-marquee-track {
+      width: auto;
+      flex-wrap: wrap;
+      animation: none;
+    }
   }
 
   .button-press {

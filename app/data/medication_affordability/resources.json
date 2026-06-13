@@ -1,33 +1,5 @@
 [
   {
-    "id": "xai-grok-agent-model",
-    "name": "xAI Grok",
-    "url": "https://x.ai/",
-    "domains": ["x.ai"],
-    "tags": ["agent-runtime", "web-search", "grok", "xai"],
-    "query_templates": ["Grok web search {medication} affordability resources"],
-    "notes_for_agent": "Primary agent model and web-search path when GROK_API_KEY is configured.",
-    "last_checked_at": "2026-06-13",
-    "category": "Agent runtime",
-    "status": "Connected now",
-    "use": "Run the medication affordability agent and search public resources when curated data is insufficient.",
-    "review_cadence": "On model or API changes"
-  },
-  {
-    "id": "pydantic-ai-agent-tools",
-    "name": "Pydantic AI",
-    "url": "https://ai.pydantic.dev/",
-    "domains": ["ai.pydantic.dev"],
-    "tags": ["agent-runtime", "tool-calling", "pydantic-ai"],
-    "query_templates": ["Pydantic AI tool calling streaming agent"],
-    "notes_for_agent": "Orchestrates tool calls, persisted events, and streamed agent output.",
-    "last_checked_at": "2026-06-13",
-    "category": "Agent runtime",
-    "status": "Connected now",
-    "use": "Coordinate the agent tools that save sources, options, questions, artifacts, and cost-tracker updates.",
-    "review_cadence": "On dependency upgrades"
-  },
-  {
     "id": "rxnorm-drug-normalization",
     "name": "RxNorm / RxNav",
     "url": "https://rxnav.nlm.nih.gov/",

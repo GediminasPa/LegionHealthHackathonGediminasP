@@ -133,6 +133,8 @@ async def test_resource_connection_catalog_endpoint(client: httpx.AsyncClient) -
         "stedi-x12-270-271",
         "covermymeds-epa",
     }.issubset(resource_ids)
+    assert "xai-grok-agent-model" not in resource_ids
+    assert all(resource["category"] != "Agent runtime" for resource in resources)
     assert all(resource["status"] for resource in resources)
     assert all(resource["category"] for resource in resources)
 
