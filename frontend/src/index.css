@@ -122,6 +122,10 @@
     height: clamp(34rem, 68dvh, 48rem);
   }
 
+  .workspace-sidebar > section {
+    flex-shrink: 0;
+  }
+
   .agent-transcript-scroll {
     overflow-y: auto;
     scrollbar-color: #746b65 transparent;

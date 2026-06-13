@@ -93,7 +93,7 @@ export type MedicationSnapshot = {
   sources: SourceRecord[];
   artifacts: ArtifactRecord[];
   flags: string[];
-  status: "intake" | "investigating" | "ready" | "error";
+  status: "intake" | "investigating" | "waiting" | "ready" | "error";
 };
 
 export type MedicationRunEvent = {

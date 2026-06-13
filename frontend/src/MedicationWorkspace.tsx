@@ -41,6 +41,9 @@ type Props = {
 };
 
 const STREAMING_ASSISTANT_ID = "assistant-streaming";
+const autoStartedSessionIds = globalStringSet("__copayGuardAutoStartedSessionIds");
+const requestedRunKeys = globalStringSet("__copayGuardRequestedRunKeys");
+const runningSessionIds = globalStringSet("__copayGuardRunningSessionIds");
 
 export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   const [running, setRunning] = useState(false);
@@ -83,7 +86,10 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           const activity = activityFromPayload(payload, event.type);
           return {
             ...current,
-            status: event.type === "activity_started" ? "investigating" : current.status,
+            status:
+              event.type === "activity_started" && !hasPendingFollowUp(current.messages)
+                ? "investigating"
+                : current.status,
             activities: upsertById(current.activities, activity),
           };
         }
@@ -106,6 +112,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
                   assistantMessage(`I need one detail: ${question}`, current.messages.length),
                 ]
               : current.messages,
+            status: "waiting",
             activities: [
               ...current.activities,
               {
@@ -181,10 +188,14 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
             options: Array.isArray(state.options)
               ? (state.options as typeof current.options)
               : current.options,
-            status: "investigating",
+            status: hasPendingFollowUp(current.messages) ? "waiting" : "investigating",
           };
         }
-        if (event.type === "run_done") return { ...current, status: "ready" };
+        if (event.type === "run_done") {
+          return hasPendingFollowUp(current.messages)
+            ? { ...current, status: "waiting" }
+            : { ...current, status: "ready" };
+        }
         if (event.type === "run_error") {
           const message = String(payload.message ?? "The investigation run failed.");
           return {
@@ -213,7 +224,16 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
     [setSnapshot],
   );
 
-  const startRun = useCallback(async (mode: "agent" | "mock" = "agent") => {
+  const startRun = useCallback(async (
+    mode: "agent" | "mock" = "agent",
+    requestToken = "initial",
+  ) => {
+    const requestKey = `${snapshot.sessionId}:${mode}:${requestToken}`;
+    const runKey = `${snapshot.sessionId}:${mode}`;
+    if (requestedRunKeys.has(requestKey)) return;
+    if (runningSessionIds.has(runKey)) return;
+    requestedRunKeys.add(requestKey);
+    runningSessionIds.add(runKey);
     setRunning(true);
     setSnapshot((current) => (current ? { ...current, status: "investigating" } : current));
     try {
@@ -224,14 +244,20 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
       const message = error instanceof Error ? error.message : "The investigation run failed.";
       applyEvent({ type: "run_error", payload: { message } });
     } finally {
+      runningSessionIds.delete(runKey);
       setRunning(false);
     }
   }, [applyEvent, setSnapshot, snapshot.sessionId]);
 
   useEffect(() => {
-    if (snapshot.status === "intake" && !autoRunStarted.current) {
+    if (
+      snapshot.status === "intake" &&
+      !autoRunStarted.current &&
+      !autoStartedSessionIds.has(snapshot.sessionId)
+    ) {
       autoRunStarted.current = true;
-      void startRun();
+      autoStartedSessionIds.add(snapshot.sessionId);
+      void startRun("agent", "initial");
     }
   }, [snapshot.status, startRun]);
 
@@ -248,7 +274,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
         : current,
     );
     await postMedicationMessage(snapshot.sessionId, content);
-    await startRun();
+    await startRun("agent", message.id);
   }
 
   async function submitFollowUp() {
@@ -276,15 +302,16 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
               running={running}
               setDraft={setDraft}
               sources={snapshot.sources}
+              status={snapshot.status}
               statusText={statusText}
               submitFollowUp={submitFollowUp}
             />
             {snapshot.status === "error" ? (
-              <RunError running={running} startRun={() => void startRun("mock")} />
+              <RunError running={running} startRun={() => void startRun("mock", "manual-mock")} />
             ) : null}
           </section>
 
-          <aside className="workspace-panel-height scrollbar-soft flex min-w-0 flex-col gap-4 overflow-y-auto xl:sticky xl:top-24 xl:self-start">
+          <aside className="workspace-panel-height workspace-sidebar scrollbar-soft flex min-w-0 flex-col gap-4 overflow-y-auto xl:sticky xl:top-24 xl:self-start">
             <CaseReviewHeader
               intake={snapshot.intake}
               running={running}
@@ -329,7 +356,11 @@ function CaseReviewHeader({
           </p>
         </div>
         <span className={`ui-sans inline-flex shrink-0 items-center gap-2 border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${statusBadgeClass(status)}`}>
-          {running ? <Loader2 className="animate-spin text-[#ef6844]" size={14} /> : <CheckCircle2 size={14} />}
+          {running ? (
+            <Loader2 className="animate-spin text-[#ef6844]" size={14} />
+          ) : (
+            <StatusIcon status={status} size={14} />
+          )}
           {statusText}
         </span>
       </div>
@@ -368,6 +399,7 @@ function AgentWorkPanel({
   running,
   setDraft,
   sources,
+  status,
   statusText,
   submitFollowUp,
 }: {
@@ -376,6 +408,7 @@ function AgentWorkPanel({
   running: boolean;
   setDraft: Dispatch<SetStateAction<string>>;
   sources: SourceRecord[];
+  status: MedicationSnapshot["status"];
   statusText: string;
   submitFollowUp: () => Promise<void>;
 }) {
@@ -394,7 +427,11 @@ function AgentWorkPanel({
               </p>
             </div>
           </div>
-          {running ? <Loader2 className="shrink-0 animate-spin text-[#ef6844]" size={18} /> : <CheckCircle2 className="shrink-0 text-[#c7c0b8]" size={18} />}
+          {running ? (
+            <Loader2 className="shrink-0 animate-spin text-[#ef6844]" size={18} />
+          ) : (
+            <StatusIcon className="shrink-0 text-[#c7c0b8]" status={status} size={18} />
+          )}
         </div>
       </div>
 
@@ -866,6 +903,7 @@ function reviewStatusText(
   if (snapshot.status === "error") return "Review paused";
   if (running && latestActivity?.title) return `${latestActivity.title}`;
   if (running) return "Analyzing case, checking evidence";
+  if (snapshot.status === "waiting") return "Needs follow-up";
   if (snapshot.status === "ready") return "Review complete";
   return "Preparing review";
 }
@@ -873,8 +911,33 @@ function reviewStatusText(
 function statusBadgeClass(status: MedicationSnapshot["status"]): string {
   if (status === "ready") return "border-[#5a5a5a] bg-[#1f1e1d] text-[#f7f2ec]";
   if (status === "error") return "border-[#ff8a7c]/45 bg-[#1f1e1d] text-[#ffd9d3]";
+  if (status === "waiting") return "border-[#ffc36a]/55 bg-[#1f1e1d] text-[#ffc36a]";
   if (status === "investigating") return "border-[#ef6844]/60 bg-[#1f1e1d] text-[#ef6844]";
   return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
+}
+
+function StatusIcon({
+  className,
+  size,
+  status,
+}: {
+  className?: string;
+  size: number;
+  status: MedicationSnapshot["status"];
+}) {
+  if (status === "ready") return <CheckCircle2 className={className} size={size} />;
+  if (status === "error") return <XCircle className={className} size={size} />;
+  if (status === "waiting") return <MessageCircle className={className} size={size} />;
+  return <CircleDot className={className} size={size} />;
+}
+
+function globalStringSet(key: string): Set<string> {
+  const scope = globalThis as typeof globalThis & Record<string, Set<string> | undefined>;
+  const existing = scope[key];
+  if (existing) return existing;
+  const created = new Set<string>();
+  scope[key] = created;
+  return created;
 }
 
 function labelize(value: string): string {
@@ -913,6 +976,21 @@ function applyFinalAssistantMessage(messages: ChatMessage[], content: string): C
   const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
   if (!content.trim()) return filtered;
   return [...filtered, assistantMessage(content, filtered.length)];
+}
+
+function hasPendingFollowUp(messages: ChatMessage[]): boolean {
+  let latestQuestionIndex = -1;
+  let latestUserIndex = -1;
+  messages.forEach((message, index) => {
+    if (message.role === "user") {
+      latestUserIndex = index;
+      return;
+    }
+    if (message.content.trim().toLowerCase().startsWith("i need one detail:")) {
+      latestQuestionIndex = index;
+    }
+  });
+  return latestQuestionIndex !== -1 && latestUserIndex < latestQuestionIndex;
 }
 
 function activityFromPayload(payload: Record<string, unknown>, eventType: string): ActivityEvent {

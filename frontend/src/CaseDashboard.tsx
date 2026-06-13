@@ -66,6 +66,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 function statusTone(status: MedicationSnapshot["status"]): string {
   if (status === "ready") return "border-[#5a5a5a] bg-[#1f1e1d] text-[#f7f2ec]";
   if (status === "error") return "border-[#ff8a7c]/45 bg-[#1f1e1d] text-[#ffd9d3]";
+  if (status === "waiting") return "border-[#ffc36a]/55 bg-[#1f1e1d] text-[#ffc36a]";
   if (status === "investigating") return "border-[#ef6844]/60 bg-[#1f1e1d] text-[#ef6844]";
   return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
 }

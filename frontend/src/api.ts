@@ -134,22 +134,23 @@ export async function getMedicationSession(sessionId: string): Promise<Medicatio
   const body = await res.json();
   const intake = fromApiIntake(body.intake);
   const state = body.case_state?.state_json ?? {};
+  const messages = (body.messages ?? []).map((message: Record<string, string | number>) => ({
+    id: String(message.id),
+    role: message.role === "assistant" ? "assistant" : "user",
+    content: String(message.content ?? ""),
+    createdAt: String(message.created_at ?? ""),
+  }));
   return {
     sessionId,
     intake,
-    messages: (body.messages ?? []).map((message: Record<string, string | number>) => ({
-      id: String(message.id),
-      role: message.role === "assistant" ? "assistant" : "user",
-      content: String(message.content ?? ""),
-      createdAt: String(message.created_at ?? ""),
-    })),
+    messages,
     costTracker: normalizeCostTracker(state.cost_tracker, intake),
     activities: (body.activities ?? []).map(normalizeActivity),
     options: (state.options ?? []) as AffordabilityOption[],
     sources: (body.sources ?? []).map(normalizeSource),
     artifacts: (body.artifacts ?? []).map(normalizeArtifact),
     flags: (state.flags ?? []) as string[],
-    status: "ready",
+    status: sessionStatusFromState(state, messages),
   };
 }
 
@@ -330,6 +331,30 @@ function normalizeArtifact(raw: Record<string, unknown>): ArtifactRecord {
     createdAt: raw.created_at == null ? null : String(raw.created_at),
     updatedAt: raw.updated_at == null ? null : String(raw.updated_at),
   };
+}
+
+function sessionStatusFromState(
+  state: Record<string, unknown>,
+  messages: Array<{ role: "user" | "assistant"; createdAt: string }>,
+): MedicationSnapshot["status"] {
+  const questions = Array.isArray(state.questions)
+    ? (state.questions as Array<Record<string, unknown>>)
+    : [];
+  if (!questions.length) return "ready";
+
+  const latestQuestionTime = Math.max(
+    ...questions.map((question) => Date.parse(String(question.created_at ?? ""))),
+  );
+  const latestUserMessageTime = Math.max(
+    ...messages
+      .filter((message) => message.role === "user")
+      .map((message) => Date.parse(message.createdAt)),
+  );
+
+  if (!Number.isFinite(latestQuestionTime)) {
+    return messages.some((message) => message.role === "user") ? "ready" : "waiting";
+  }
+  return latestUserMessageTime > latestQuestionTime ? "ready" : "waiting";
 }
 
 async function errorFromResponse(res: Response): Promise<Error> {
