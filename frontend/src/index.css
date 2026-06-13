@@ -118,6 +118,26 @@
     scrollbar-color: #746b65 transparent;
   }
 
+  .workspace-panel-height {
+    height: clamp(34rem, 68dvh, 48rem);
+  }
+
+  .agent-transcript-scroll {
+    overflow-y: auto;
+    scrollbar-color: #746b65 transparent;
+  }
+
+  @media (width < 80rem) {
+    .workspace-panel-height {
+      height: auto;
+    }
+
+    .agent-transcript-scroll {
+      height: clamp(24rem, 58dvh, 36rem);
+      flex: none;
+    }
+  }
+
   .ui-sans {
     font-family:
       "SFMono-Regular", "Roboto Mono", "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;

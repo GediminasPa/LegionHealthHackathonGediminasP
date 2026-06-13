@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,9 +19,7 @@ import {
   Loader2,
   MessageCircle,
   Route,
-  Search,
   ShieldCheck,
-  WalletCards,
   XCircle,
 } from "lucide-react";
 import { postMedicationMessage, streamMedicationRun } from "./api";
@@ -30,7 +29,6 @@ import type {
   AffordabilityOption,
   ArtifactRecord,
   ChatMessage,
-  CostTrackerState,
   MedicationIntakeData,
   MedicationRunEvent,
   MedicationSnapshot,
@@ -48,6 +46,10 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   const [running, setRunning] = useState(false);
   const [draft, setDraft] = useState("");
   const autoRunStarted = useRef(false);
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [snapshot.sessionId]);
 
   const applyEvent = useCallback(
     (event: MedicationRunEvent) => {
@@ -262,71 +264,150 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   );
   const latestActivity = snapshot.activities.at(-1);
   const statusText = reviewStatusText(snapshot, running, latestActivity);
-  const reviewQuestion = buildReviewQuestion(snapshot.intake);
 
   return (
-    <main className="min-h-[calc(100dvh-80px)] bg-[#1f1e1d]">
-      <div className="mx-auto flex min-h-[calc(100dvh-80px)] max-w-[1480px] flex-col px-4 pb-5 pt-5 sm:px-6 lg:px-10">
-        <section className="relative mx-auto w-full max-w-[1120px]">
-          <div className="pointer-events-none absolute -left-8 top-1 hidden h-28 w-28 rounded-full border-[12px] border-[#ef6844] border-r-transparent lg:block" />
-          <div className="relative flex min-h-20 items-center gap-4 rounded-[2rem] border border-white/18 bg-[#302e2c] px-5 py-4 shadow-[0_18px_60px_rgb(0_0_0/0.22)] sm:px-7">
-            <Search className="shrink-0 text-[#ef6844]" size={22} />
-            <p className="min-w-0 flex-1 text-xl leading-8 text-[#f7f2ec] sm:text-2xl">
-              {reviewQuestion}
-            </p>
-          </div>
-
-          <div className="ui-sans mt-7 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#c7c0b8]">
-            <span className="inline-flex items-center gap-2">
-              {running ? <Loader2 className="animate-spin text-[#ef6844]" size={17} /> : <CheckCircle2 size={17} />}
-              {statusText}
-            </span>
-            <ChevronDown size={16} />
-          </div>
-
-          {snapshot.status === "error" ? (
-            <div className="ui-sans mt-5 flex flex-wrap items-center justify-between gap-3 border border-[#ff8a7c]/40 bg-[#2b1410] px-4 py-3 text-sm text-[#ffd9d3]">
-              <span className="inline-flex items-center gap-2">
-                <XCircle size={17} />
-                The live agent run failed. You can run the local demo stream.
-              </span>
-              <button
-                className="button-press bg-[#ef6844] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#3a302c] disabled:text-[#777777]"
-                disabled={running}
-                type="button"
-                onClick={() => void startRun("mock")}
-              >
-                Run mock demo
-              </button>
-            </div>
-          ) : null}
-        </section>
-
-        <div className="mx-auto mt-8 grid w-full max-w-[1120px] flex-1 gap-7 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="min-w-0">
-            <AgentTranscript
+    <main className="bg-[#1f1e1d]">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col px-3 pb-8 pt-4 sm:px-5 lg:px-8">
+        <div className="grid w-full flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,410px)]">
+          <section className="min-w-0 space-y-5">
+            <AgentWorkPanel
               assistantMessages={assistantMessages}
-              running={running}
-              sources={snapshot.sources}
-            />
-            <RouteSummary options={snapshot.options} />
-            <FollowUpComposer
               draft={draft}
               running={running}
               setDraft={setDraft}
+              sources={snapshot.sources}
+              statusText={statusText}
               submitFollowUp={submitFollowUp}
             />
+            {snapshot.status === "error" ? (
+              <RunError running={running} startRun={() => void startRun("mock")} />
+            ) : null}
           </section>
 
-          <aside className="grid content-start gap-4 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto xl:pb-4">
-            <CostImpact tracker={snapshot.costTracker} />
+          <aside className="workspace-panel-height scrollbar-soft flex min-w-0 flex-col gap-4 overflow-y-auto xl:sticky xl:top-24 xl:self-start">
+            <CaseReviewHeader
+              intake={snapshot.intake}
+              running={running}
+              status={snapshot.status}
+              statusText={statusText}
+            />
+            <LiveActivity activities={snapshot.activities} running={running} compact />
+            <RouteSummary options={snapshot.options} />
             <CaseSnapshot intake={snapshot.intake} flags={snapshot.flags} status={snapshot.status} />
-            <LiveActivity activities={snapshot.activities} running={running} />
             <DraftSummary artifactCount={snapshot.artifacts.length} />
           </aside>
         </div>
       </div>
     </main>
+  );
+}
+
+function CaseReviewHeader({
+  intake,
+  running,
+  status,
+  statusText,
+}: {
+  intake: MedicationIntakeData;
+  running: boolean;
+  status: MedicationSnapshot["status"];
+  statusText: string;
+}) {
+  return (
+    <section className="border border-white/12 bg-[#2b2928] p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+            Case review
+          </p>
+          <h2 className="mt-2 break-words text-2xl font-semibold leading-8 text-[#f7f2ec]">
+            {intake.medicationName || "Medication review"}
+          </h2>
+          <p className="ui-sans mt-2 max-w-[72ch] text-sm leading-6 text-[#c7c0b8]">
+            {intake.planName || intake.insuranceType}
+            {intake.quotedPriceCents > 0 ? `, quoted at ${formatCents(intake.quotedPriceCents)}` : ""}
+          </p>
+        </div>
+        <span className={`ui-sans inline-flex shrink-0 items-center gap-2 border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${statusBadgeClass(status)}`}>
+          {running ? <Loader2 className="animate-spin text-[#ef6844]" size={14} /> : <CheckCircle2 size={14} />}
+          {statusText}
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function RunError({
+  running,
+  startRun,
+}: {
+  running: boolean;
+  startRun: () => void;
+}) {
+  return (
+    <div className="ui-sans flex flex-wrap items-center justify-between gap-3 border border-[#ff8a7c]/40 bg-[#2b1410] px-4 py-3 text-sm text-[#ffd9d3]">
+      <span className="inline-flex items-center gap-2">
+        <XCircle size={17} />
+        The live agent run failed. You can run the local demo stream.
+      </span>
+      <button
+        className="button-press bg-[#ef6844] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#3a302c] disabled:text-[#777777]"
+        disabled={running}
+        type="button"
+        onClick={startRun}
+      >
+        Run mock demo
+      </button>
+    </div>
+  );
+}
+
+function AgentWorkPanel({
+  assistantMessages,
+  draft,
+  running,
+  setDraft,
+  sources,
+  statusText,
+  submitFollowUp,
+}: {
+  assistantMessages: ChatMessage[];
+  draft: string;
+  running: boolean;
+  setDraft: Dispatch<SetStateAction<string>>;
+  sources: SourceRecord[];
+  statusText: string;
+  submitFollowUp: () => Promise<void>;
+}) {
+  return (
+    <section className="workspace-panel-height flex w-full min-w-0 flex-col overflow-hidden border border-white/12 bg-[#2b2928]">
+      <div className="border-b border-white/12 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center bg-[#ef6844] text-white">
+              <Bot size={18} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-[#f7f2ec]">Agent work</h2>
+              <p className="ui-sans mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+                {statusText}
+              </p>
+            </div>
+          </div>
+          {running ? <Loader2 className="shrink-0 animate-spin text-[#ef6844]" size={18} /> : <CheckCircle2 className="shrink-0 text-[#c7c0b8]" size={18} />}
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        <AgentTranscript assistantMessages={assistantMessages} running={running} sources={sources} />
+        <FollowUpComposer
+          draft={draft}
+          running={running}
+          setDraft={setDraft}
+          submitFollowUp={submitFollowUp}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -340,11 +421,11 @@ function AgentTranscript({
   sources: SourceRecord[];
 }) {
   return (
-    <article className="min-h-[34rem] border border-white/12 bg-[#1f1e1d] px-5 py-5 sm:px-7 sm:py-7">
+    <article className="agent-transcript-scroll min-h-0 flex-1 border border-white/12 bg-[#1f1e1d] px-4 py-5 sm:px-5">
       {assistantMessages.length === 0 ? (
         <InitialResearchState running={running} />
       ) : (
-        <div className="grid gap-8">
+        <div className="grid gap-6">
           {assistantMessages.map((message, index) => (
             <section className="grid gap-4" key={message.id}>
               {index > 0 ? (
@@ -406,13 +487,13 @@ function AgentMarkdown({ content }: { content: string }) {
   const blocks = markdownBlocks(content);
 
   return (
-    <div className="space-y-5 text-[1.08rem] leading-8 text-[#f7f2ec]">
+    <div className="ui-sans space-y-4 text-sm leading-6 text-[#f7f2ec] sm:text-[0.92rem] sm:leading-7">
       {blocks.map((block, index) => {
         if (block.type === "heading") {
           const Heading = block.level === 2 ? "h2" : "h3";
           return (
             <Heading
-              className="pt-2 text-2xl font-semibold leading-8 text-[#f7f2ec] sm:text-3xl"
+              className="pt-1 text-base font-semibold leading-7 text-[#f7f2ec] sm:text-lg"
               key={`${block.type}-${index}`}
             >
               {renderInline(block.text)}
@@ -424,7 +505,7 @@ function AgentMarkdown({ content }: { content: string }) {
           const ListTag = block.ordered ? "ol" : "ul";
           return (
             <ListTag
-              className={`grid gap-2 pl-5 ${block.ordered ? "list-decimal" : "list-disc"}`}
+              className={`grid gap-1.5 pl-5 ${block.ordered ? "list-decimal" : "list-disc"}`}
               key={`${block.type}-${index}`}
             >
               {block.items.map((item, itemIndex) => (
@@ -555,7 +636,7 @@ function SourceRibbon({ sources }: { sources: SourceRecord[] }) {
 
 function RouteSummary({ options }: { options: AffordabilityOption[] }) {
   return (
-    <section className="mt-5 border border-white/12 bg-[#2b2928] p-5 sm:p-6">
+    <section className="border border-white/12 bg-[#2b2928] p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-xl font-semibold text-[#f7f2ec]">
           <Route size={19} />
@@ -574,11 +655,11 @@ function RouteSummary({ options }: { options: AffordabilityOption[] }) {
         ) : null}
         {options.map((option, index) => (
           <article className="border border-white/12 bg-[#1f1e1d] p-4" key={option.id}>
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-semibold leading-6 text-[#f7f2ec]">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h3 className="min-w-0 text-base font-semibold leading-6 text-[#f7f2ec]">
                 {index + 1}. {option.title}
               </h3>
-              <span className="ui-sans shrink-0 border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+              <span className="ui-sans max-w-full shrink-0 break-words border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
                 {labelize(option.confidence)}
               </span>
             </div>
@@ -608,7 +689,7 @@ function FollowUpComposer({
 }) {
   return (
     <form
-      className="mt-5 rounded-[2rem] border border-white/16 bg-[#302e2c] p-2 shadow-[0_18px_70px_rgb(0_0_0/0.35)]"
+      className="rounded-[2rem] border border-white/16 bg-[#302e2c] p-2 shadow-[0_18px_70px_rgb(0_0_0/0.35)]"
       onSubmit={(event) => {
         event.preventDefault();
         void submitFollowUp();
@@ -617,10 +698,16 @@ function FollowUpComposer({
       <div className="flex items-center gap-2">
         <textarea
           aria-label="Ask a follow-up question"
-          className="ui-sans min-h-14 flex-1 resize-none rounded-[1.5rem] border-0 bg-transparent px-4 py-4 text-base text-[#f7f2ec] outline-none placeholder:text-[#9c948e]"
+          className="ui-sans max-h-28 min-h-12 flex-1 resize-none rounded-[1.5rem] border-0 bg-transparent px-3 py-3 text-sm leading-6 text-[#f7f2ec] outline-none placeholder:text-[#9c948e] sm:px-4"
           placeholder="Ask a follow-up question..."
           rows={1}
           value={draft}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void submitFollowUp();
+            }
+          }}
           onChange={(event) => setDraft(event.target.value)}
         />
         <button
@@ -636,51 +723,6 @@ function FollowUpComposer({
   );
 }
 
-function CostImpact({ tracker }: { tracker: CostTrackerState }) {
-  return (
-    <section className="border border-white/12 bg-[#2b2928] p-4">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-[#f7f2ec]">
-        <WalletCards size={17} />
-        Cost impact
-      </h2>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <MiniMetric label="Quote" value={formatCents(tracker.quotedPriceCents)} />
-        <MiniMetric label="Best" value={formatMaybeCents(tracker.currentBestEstimatedPriceCents)} />
-        <MiniMetric label="Drop" tone="success" value={formatMaybeCents(tracker.potentialDropCents)} />
-        <MiniMetric label="Type" value={labelize(tracker.dropType)} />
-      </div>
-      <p className="ui-sans mt-4 border border-white/12 bg-[#1f1e1d] p-3 text-sm leading-6 text-[#c7c0b8]">
-        {tracker.explanation}
-      </p>
-    </section>
-  );
-}
-
-function MiniMetric({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "success";
-}) {
-  return (
-    <div className="border border-white/12 bg-[#1f1e1d] p-3">
-      <dt className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-        {label}
-      </dt>
-      <dd
-        className={`mt-1 break-words text-sm font-semibold ${
-          tone === "success" ? "text-[#76d7a6]" : "text-[#f7f2ec]"
-        }`}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
 function CaseSnapshot({
   intake,
   flags,
@@ -691,10 +733,10 @@ function CaseSnapshot({
   status: MedicationSnapshot["status"];
 }) {
   return (
-    <section className="border border-white/12 bg-[#2b2928] p-4">
+    <section className="w-full min-w-0 overflow-hidden border border-white/12 bg-[#2b2928] p-4">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-base font-semibold text-[#f7f2ec]">Case</h2>
-        <span className={`ui-sans border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${statusBadgeClass(status)}`}>
+        <span className={`ui-sans shrink-0 border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${statusBadgeClass(status)}`}>
           {status}
         </span>
       </div>
@@ -728,7 +770,7 @@ function CaseSnapshot({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-white/12 bg-[#1f1e1d] p-3">
+    <div className="min-w-0 overflow-hidden border border-white/12 bg-[#1f1e1d] p-3">
       <dt className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
         {label}
       </dt>
@@ -740,49 +782,69 @@ function Fact({ label, value }: { label: string; value: string }) {
 function LiveActivity({
   activities,
   running,
+  compact = false,
 }: {
   activities: ActivityEvent[];
   running: boolean;
+  compact?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const visible = activities.slice(-5).reverse();
 
   return (
-    <section className="border border-white/12 bg-[#2b2928] p-4">
+    <section className={`w-full min-w-0 overflow-hidden border border-white/12 ${compact ? "bg-[#1f1e1d] p-3" : "bg-[#2b2928] p-4"}`}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-[#f7f2ec]">Agent activity</h2>
-        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          {running ? "Running" : "Idle"}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+            {running ? "Running" : "Idle"}
+          </span>
+          <button
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand agent activity" : "Collapse agent activity"}
+            className="button-press inline-flex h-8 w-8 items-center justify-center border border-white/12 bg-[#1f1e1d] text-[#c7c0b8] hover:border-[#ef6844]/70 hover:text-[#f7f2ec]"
+            title={collapsed ? "Expand activity" : "Collapse activity"}
+            type="button"
+            onClick={() => setCollapsed((current) => !current)}
+          >
+            <ChevronDown
+              className={`transition-transform ${collapsed ? "-rotate-90" : "rotate-0"}`}
+              size={16}
+            />
+          </button>
+        </div>
       </div>
-      <div className="mt-4 grid gap-3">
-        {visible.length === 0 ? (
-          <p className="ui-sans border border-dashed border-white/12 bg-[#1f1e1d] p-3 text-sm leading-6 text-[#c7c0b8]">
-            Starting the review sequence.
-          </p>
-        ) : null}
-        {visible.map((activity) => (
-          <div className="flex gap-3 border border-white/12 bg-[#1f1e1d] p-3" key={activity.id}>
-            <span className="mt-0.5 text-[#ef6844]">
-              {activity.status === "completed" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#f7f2ec]">{activity.title}</p>
-              {activity.summary ? (
-                <p className="ui-sans mt-1 line-clamp-3 text-xs leading-5 text-[#c7c0b8]">
-                  {activity.summary}
-                </p>
-              ) : null}
+      {!collapsed ? (
+        <div className="mt-4 grid gap-3">
+          {visible.length === 0 ? (
+            <p className="ui-sans border border-dashed border-white/12 bg-[#1f1e1d] p-3 text-sm leading-6 text-[#c7c0b8]">
+              Starting the review sequence.
+            </p>
+          ) : null}
+          {visible.map((activity) => (
+            <div className="flex min-w-0 gap-3 border border-white/12 bg-[#1f1e1d] p-3" key={activity.id}>
+              <span className="mt-0.5 text-[#ef6844]">
+                {activity.status === "completed" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#f7f2ec]">{activity.title}</p>
+                {activity.summary ? (
+                  <p className="ui-sans mt-1 line-clamp-3 text-xs leading-5 text-[#c7c0b8]">
+                    {activity.summary}
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
 
 function DraftSummary({ artifactCount }: { artifactCount: number }) {
   return (
-    <section className="border border-white/12 bg-[#2b2928] p-4">
+    <section className="w-full min-w-0 overflow-hidden border border-white/12 bg-[#2b2928] p-4">
       <h2 className="flex items-center gap-2 text-base font-semibold text-[#f7f2ec]">
         <FileText size={17} />
         Drafts
@@ -794,14 +856,6 @@ function DraftSummary({ artifactCount }: { artifactCount: number }) {
       </p>
     </section>
   );
-}
-
-function buildReviewQuestion(intake: MedicationIntakeData): string {
-  const medication = intake.medicationName.trim() || "this medication";
-  const plan = intake.planName.trim() || intake.insuranceType.trim();
-  const quote = intake.quotedPriceCents > 0 ? ` at ${formatCents(intake.quotedPriceCents)}` : "";
-  const planText = plan ? ` under ${plan}` : "";
-  return `Find the best affordability options for ${medication}${planText}${quote}`;
 }
 
 function reviewStatusText(
@@ -821,10 +875,6 @@ function statusBadgeClass(status: MedicationSnapshot["status"]): string {
   if (status === "error") return "border-[#ff8a7c]/45 bg-[#1f1e1d] text-[#ffd9d3]";
   if (status === "investigating") return "border-[#ef6844]/60 bg-[#1f1e1d] text-[#ef6844]";
   return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
-}
-
-function formatMaybeCents(cents: number | null): string {
-  return cents == null ? "unknown" : formatCents(cents);
 }
 
 function labelize(value: string): string {
@@ -882,10 +932,11 @@ function toolActivityFromPayload(
   index: number,
 ): ActivityEvent {
   const name = String(payload.name ?? "tool");
+  const label = toolLabel(name);
   return {
     id: `${eventType}-${name}-${Date.now()}-${index}`,
     eventType,
-    title: eventType === "tool_call" ? `Calling ${name}` : `Finished ${name}`,
+    title: eventType === "tool_call" ? label.running : label.done,
     summary: summarizeToolPayload(payload),
     status: eventType === "tool_call" ? "running" : "completed",
     createdAt: new Date().toISOString(),
@@ -893,13 +944,48 @@ function toolActivityFromPayload(
 }
 
 function summarizeToolPayload(payload: Record<string, unknown>): string {
-  const value = payload.result ?? payload.args;
-  if (!value) return "";
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
+  const name = String(payload.name ?? "");
+  if (name === "update_cost_tracker") return "Refreshing expected cost, savings type, and confidence.";
+  if (name === "ask_question") return "The agent needs one answer before it can narrow the recommendation.";
+  if (name === "save_option") return "Adding a ranked affordability route to the review.";
+  if (name === "save_source") return "Saving an evidence source for the recommendation.";
+  if (name === "save_artifact") return "Preparing a reusable draft for the next step.";
+  if (name === "get_session_context") return "Reading case details and previous messages.";
+  if (typeof payload.summary === "string") return payload.summary;
+  return "";
+}
+
+function toolLabel(name: string): { running: string; done: string } {
+  const labels: Record<string, { running: string; done: string }> = {
+    ask_question: {
+      running: "Preparing follow-up question",
+      done: "Follow-up question ready",
+    },
+    get_session_context: {
+      running: "Reading case context",
+      done: "Case context loaded",
+    },
+    save_artifact: {
+      running: "Drafting next-step artifact",
+      done: "Draft artifact prepared",
+    },
+    save_option: {
+      running: "Ranking affordability route",
+      done: "Affordability route saved",
+    },
+    save_source: {
+      running: "Saving evidence source",
+      done: "Evidence source saved",
+    },
+    update_cost_tracker: {
+      running: "Updating cost estimate",
+      done: "Cost estimate updated",
+    },
+  };
+  return labels[name] ?? {
+    running: `Running ${labelize(name)}`,
+    done: `${labelize(name)} complete`,
+  };
 }
 
 function sourceFromPayload(payload: Record<string, unknown>): SourceRecord {
