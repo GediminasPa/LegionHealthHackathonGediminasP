@@ -47,7 +47,7 @@ export default function MedicationAffordabilityApp() {
     <div className="min-h-[100dvh] bg-[#1f1e1d] text-[#f7f2ec]">
       <header className="sticky top-0 z-20 border-b border-white/12 bg-[#1f1e1d]">
         <div className="mx-auto flex min-h-20 max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:px-10">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-0">
             <button
               className="button-press shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ef6844]"
               type="button"
@@ -55,7 +55,7 @@ export default function MedicationAffordabilityApp() {
               aria-label="Return to initial page"
             >
               <img
-                className="h-20 w-20 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)]"
+                className="h-24 w-24 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-2 sm:h-28 sm:w-28"
                 src={PRODUCT_LOGO_SRC}
                 alt=""
               />

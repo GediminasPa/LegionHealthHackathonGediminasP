@@ -43,10 +43,10 @@ const SCENARIO_OPTIONS: ScenarioOption[] = [
     id: "before_fill",
     title: "Before fill",
     shortTitle: "Pre-fill check",
-    body: "I have a prescription and want likely blockers checked before pickup.",
+    body: "I want to check potential drug costs and the best covered alternatives before pickup.",
     checks: ["PA and step therapy", "tier and quantity limits", "generic, biosimilar, or cash paths"],
     submitNote:
-      "Patient is before the first fill and wants likely access blockers, expected price drivers, alternatives, and cash-vs-insurance tradeoffs checked.",
+      "Patient is before the first fill and wants potential drug costs, access blockers, covered alternatives, and cash-vs-insurance tradeoffs checked.",
   },
   {
     id: "sticker_shock",
@@ -151,9 +151,9 @@ export default function MedicationIntake({
         <section className="flex min-w-0 flex-1 flex-col justify-start py-0">
           <div className="w-full min-w-0">
             <div className="mx-auto w-full max-w-[880px] text-center">
-              <div className="inline-flex w-full max-w-full min-w-0 flex-col items-center gap-4 sm:w-auto sm:flex-row sm:justify-center">
+              <div className="inline-flex w-full max-w-full min-w-0 flex-col items-center gap-1 sm:w-auto sm:flex-row sm:justify-center sm:gap-0">
                 <img
-                  className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:h-32 sm:w-32"
+                  className="h-40 w-40 shrink-0 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-10 sm:h-52 sm:w-52 lg:-mr-12 lg:h-56 lg:w-56"
                   src={PRODUCT_LOGO_SRC}
                   alt={`${PRODUCT_NAME} logo`}
                 />
@@ -174,12 +174,6 @@ export default function MedicationIntake({
             <DemoCasePicker
               demoCases={demoCases}
               selectedCaseId={selectedCaseId}
-              onBlank={() => {
-                setSelectedCaseId(null);
-                setSelectedScenarioId(inferScenarioId(initialIntake));
-                setCaseReason(caseReasonFromIntake(initialIntake));
-                setIntake(initialIntake);
-              }}
               onSelect={(demo) => {
                 const scenarioId = inferScenarioId(demo.intake);
                 setSelectedCaseId(demo.id);
@@ -422,7 +416,16 @@ function HealthcareLogoMarquee({ resources }: { resources: MedicationResourceCon
   const marqueeResources = [...healthcareResources, ...healthcareResources];
 
   return (
-    <section className="connection-marquee-section mt-10" aria-label="Connected healthcare sources">
+    <section
+      className="connection-marquee-section mt-10"
+      aria-labelledby="connected-healthcare-sources"
+    >
+      <h2
+        className="connection-marquee-heading"
+        id="connected-healthcare-sources"
+      >
+        Healthcare sources CopayGuard connects to
+      </h2>
       <div className="connection-marquee">
         <div className="connection-marquee-track">
           {marqueeResources.map((resource, index) => {
@@ -547,14 +550,17 @@ function ReasonDetails({
 function DemoCasePicker({
   demoCases,
   selectedCaseId,
-  onBlank,
   onSelect,
 }: {
   demoCases: DemoCase[];
   selectedCaseId: string | null;
-  onBlank: () => void;
   onSelect: (demo: DemoCase) => void;
 }) {
+  const demoChoices = SCENARIO_OPTIONS.map((scenario) => {
+    const demo = representativeDemoCase(demoCases, scenario.id);
+    return demo ? { demo, scenario } : null;
+  }).filter((choice): choice is { demo: DemoCase; scenario: ScenarioOption } => choice !== null);
+
   return (
     <section className="mt-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -563,32 +569,20 @@ function DemoCasePicker({
             Try a demo case
           </h2>
           <p className="ui-sans mt-3 max-w-[42rem] text-sm leading-6 text-[#c7c0b8]">
-            Load a realistic case file, then edit any field before starting the review.
+            Pick one path to pre-fill the case, then edit any field before starting the review.
           </p>
         </div>
-        <button
-          className={`button-press ui-sans inline-flex min-h-12 items-center gap-2 border px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] ${
-            selectedCaseId === null
-              ? "border-[#ef6844] bg-[#ef6844] text-white"
-              : "border-white/12 bg-[#1f1e1d] text-[#c7c0b8] hover:border-[#ef6844]/70 hover:text-[#f7f2ec]"
-          }`}
-          type="button"
-          onClick={onBlank}
-        >
-          <FilePlus2 size={16} />
-          Blank case
-        </button>
+        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+          3 paths
+        </span>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {demoCases.map((demo) => {
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        {demoChoices.map(({ demo, scenario }) => {
           const selected = selectedCaseId === demo.id;
-          const scenario = SCENARIO_OPTIONS.find(
-            (option) => option.id === inferScenarioId(demo.intake),
-          );
           return (
             <button
-              className={`demo-case-card button-press text-left ${
+              className={`demo-case-card button-press flex min-h-[8.25rem] flex-col justify-between text-left ${
                 selected ? "demo-case-card-selected" : ""
               }`}
               key={demo.id}
@@ -597,15 +591,19 @@ function DemoCasePicker({
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="ui-sans border border-[#ef6844]/35 bg-[#2b1b15] px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#ffd0be]">
-                  {scenario?.shortTitle ?? "Case file"}
+                  {scenario.shortTitle}
                 </span>
                 {selected ? <CheckCircle2 className="text-[#76d7a6]" size={18} /> : null}
               </div>
-              <h3 className="mt-4 text-xl font-semibold leading-tight tracking-[-0.035em] text-[#f7f2ec]">
-                {demo.title}
-              </h3>
-              <p className="ui-sans mt-3 text-sm leading-6 text-[#c7c0b8]">{demo.summary}</p>
-              <div className="ui-sans mt-5 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#8f8780]">
+              <div className="mt-3">
+                <h3 className="text-base font-semibold leading-tight tracking-[-0.025em] text-[#f7f2ec]">
+                  {demo.title}
+                </h3>
+                <p className="ui-sans mt-2 h-10 overflow-hidden text-xs leading-5 text-[#c7c0b8]">
+                  {demo.summary}
+                </p>
+              </div>
+              <div className="ui-sans mt-4 flex items-center justify-between gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#8f8780]">
                 <span>{demo.intake.insuranceType}</span>
                 <span>
                   {demo.intake.quotedPriceCents > 0
@@ -618,6 +616,19 @@ function DemoCasePicker({
         })}
       </div>
     </section>
+  );
+}
+
+const PREFERRED_DEMO_CASE_IDS: Record<ScenarioId, string> = {
+  before_fill: "before-fill-adderall-options",
+  sticker_shock: "medicare-enbrel-wellcare",
+  coupon_behavior: "commercial-enbrel-accumulator",
+};
+
+function representativeDemoCase(demoCases: DemoCase[], scenarioId: ScenarioId) {
+  return (
+    demoCases.find((demo) => demo.id === PREFERRED_DEMO_CASE_IDS[scenarioId]) ??
+    demoCases.find((demo) => inferScenarioId(demo.intake) === scenarioId)
   );
 }
 

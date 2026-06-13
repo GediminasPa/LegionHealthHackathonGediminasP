@@ -264,8 +264,16 @@
     max-width: 100%;
     min-width: 0;
     overflow: hidden;
-    border-block: 1px solid rgb(255 255 255 / 0.12);
-    padding-block: 1rem;
+    padding-block: 0.35rem 1rem;
+  }
+
+  .connection-marquee-heading {
+    margin: 0 0 0.85rem;
+    color: #f7f2ec;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
   }
 
   .connection-marquee {
@@ -278,7 +286,7 @@
   .connection-marquee-track {
     display: flex;
     width: max-content;
-    gap: 0.8rem;
+    gap: 1.35rem;
     animation: connection-marquee 42s linear infinite;
   }
 
@@ -295,15 +303,14 @@
     align-items: center;
     justify-content: center;
     gap: 0.48rem;
-    border: 1px solid rgb(255 255 255 / 0.1);
+    border: 0;
     background: transparent;
     text-decoration: none;
     outline: none;
   }
 
   .connection-logo-tile:hover {
-    border-color: rgb(239 104 68 / 0.5);
-    background: rgb(255 255 255 / 0.035);
+    background: transparent;
   }
 
   .connection-logo-tile:focus-visible {
@@ -318,7 +325,7 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgb(255 255 255 / 0.13);
+    border: 0;
     background: transparent;
     color: #f7f2ec;
     font-family:
