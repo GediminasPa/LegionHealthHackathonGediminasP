@@ -12,8 +12,8 @@ export default function CostTracker({ tracker }: { tracker: CostTrackerState }) 
           </h2>
           <p className="ui-sans mt-1 text-sm leading-6 text-[#c7c0b8]">{tracker.currentBestLabel}</p>
         </div>
-        <div className="rounded-2xl border border-white/14 bg-white/5 px-4 py-3 text-right">
-          <div className="ui-sans text-xs font-semibold text-[#c7c0b8]">Quote</div>
+        <div className="border border-white/12 bg-[#2b2928] px-4 py-3 text-right">
+          <div className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">Quote</div>
           <div className="text-2xl font-semibold text-[#f7f2ec]">{formatCents(tracker.quotedPriceCents)}</div>
         </div>
       </div>
@@ -22,7 +22,7 @@ export default function CostTracker({ tracker }: { tracker: CostTrackerState }) 
         <Metric label="Potential drop" value={formatMaybeCents(tracker.potentialDropCents)} tone="success" />
         <Metric label="Path type" value={labelize(tracker.dropType)} />
       </div>
-      <div className="ui-sans mt-4 flex items-start gap-3 rounded-2xl border border-[#ef6844]/35 bg-[#3a302c] px-4 py-3 text-sm leading-6 text-[#ffd5c9]">
+      <div className="ui-sans mt-4 flex items-start gap-3 border border-white/12 bg-[#2b2928] px-4 py-3 text-sm leading-6 text-[#d2d2d2]">
         <TrendingDown className="mt-1 shrink-0 text-[#ef6844]" size={16} />
         <p>{tracker.explanation}</p>
       </div>
@@ -40,8 +40,8 @@ function Metric({
   tone?: "default" | "success";
 }) {
   return (
-    <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-3">
-      <div className="ui-sans text-xs font-semibold text-[#c7c0b8]">{label}</div>
+    <div className="border border-white/12 bg-[#2b2928] px-4 py-3">
+      <div className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">{label}</div>
       <div className={`mt-1 text-base font-semibold ${tone === "success" ? "text-[#76d7a6]" : "text-[#f7f2ec]"}`}>
         {value}
       </div>

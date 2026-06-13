@@ -47,7 +47,7 @@ export default function Chat() {
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="text-sm text-gray-400">
-            Ask the agent something — e.g. “what items are stored?”
+            Ask the agent something, e.g. “what items are stored?”
           </p>
         )}
         {messages.map((m, i) => (

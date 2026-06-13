@@ -238,22 +238,22 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
   }
 
   return (
-    <main className="mx-auto grid h-[calc(100dvh-65px)] max-w-[1500px] gap-0 bg-[#1f1e1d] px-0 lg:grid-cols-[minmax(390px,42%)_1fr]">
-      <div className="hidden min-h-0 border-r border-white/12 bg-[#252321] lg:block">
+    <main className="mx-auto grid h-[calc(100dvh-80px)] max-w-[1500px] gap-0 bg-[#1f1e1d] px-0 lg:grid-cols-[minmax(390px,42%)_1fr]">
+      <div className="hidden min-h-0 border-r border-white/12 bg-[#1f1e1d] lg:block">
         <AgentChatPanel messages={snapshot.messages} onSend={handleSend} running={running} />
       </div>
 
       <div className="flex min-h-0 flex-col overflow-hidden">
         <div className="shrink-0 border-b border-white/12 bg-[#1f1e1d] p-3 lg:hidden">
-          <div className="ui-sans grid grid-cols-4 gap-1 rounded-full border border-white/10 bg-[#2b2928] p-1">
+          <div className="ui-sans grid grid-cols-4 gap-1 border border-white/12 bg-[#1f1e1d] p-1">
             {mobileTabs.map((tab) => {
               const Icon = tab.icon;
               return (
               <button
-                className={`button-press flex min-h-10 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-semibold ${
+                className={`button-press flex min-h-10 items-center justify-center gap-1.5 px-2 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${
                   activeTab === tab.id
-                    ? "bg-[#ef6844] text-white shadow-sm"
-                    : "text-[#c7c0b8] hover:bg-white/6"
+                    ? "bg-[#ef6844] text-white"
+                    : "text-[#c7c0b8] hover:bg-[#302e2c]"
                 }`}
                 key={tab.id}
                 type="button"
@@ -279,9 +279,9 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           <div className="grid gap-4 pb-6">
             <CostTracker tracker={snapshot.costTracker} />
             {snapshot.status === "error" ? (
-              <div className="rounded-2xl border border-[#ef6844]/30 bg-[#302721] p-3 shadow-[0_16px_40px_rgb(0_0_0/0.18)]">
+              <div className="border border-white/12 bg-[#1f1e1d] p-3">
                 <button
-                  className="button-press ui-sans rounded-full bg-[#ef6844] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgb(239_104_68/0.22)] hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#69534c] disabled:shadow-none"
+                  className="button-press ui-sans bg-[#ef6844] px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-white hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#3a302c] disabled:text-[#777777]"
                   disabled={running}
                   type="button"
                   onClick={() => void startRun("mock")}

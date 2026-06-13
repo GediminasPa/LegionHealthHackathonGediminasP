@@ -9,21 +9,21 @@ export default function OptionsBoard({ options }: { options: AffordabilityOption
           <Route size={16} />
           Affordability routes
         </h2>
-        <span className="ui-sans rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[#c7c0b8]">
+        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
           {options.length} found
         </span>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {options.length === 0 ? (
-          <p className="ui-sans rounded-2xl border border-dashed border-white/18 bg-white/5 p-3 text-sm text-[#c7c0b8]">
+          <p className="ui-sans border border-dashed border-white/12 bg-[#2b2928] p-3 text-sm text-[#c7c0b8]">
             Waiting for ranked routes.
           </p>
         ) : null}
         {options.map((option) => (
-          <article className="rounded-2xl border border-white/12 bg-white/5 p-4" key={option.id}>
+          <article className="border border-white/12 bg-[#2b2928] p-4" key={option.id}>
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-sm font-semibold text-[#f7f2ec]">{option.title}</h3>
-              <span className="ui-sans rounded-full border border-white/12 bg-[#2f2d2b] px-2.5 py-1 text-xs font-semibold text-[#c7c0b8]">
+              <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
                 {option.confidence.replaceAll("_", " ")}
               </span>
             </div>

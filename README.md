@@ -1,4 +1,4 @@
-# LegionHealthHackathonGediminasP
+# CopayGuard
 
 FastAPI + Postgres + a Grok-powered Pydantic AI agent + React frontend, copied from `hackathon-starter` and prepared for local Docker development plus Vercel deployment.
 
@@ -73,6 +73,29 @@ bin/db revision "add orders"
 bin/db reset
 ```
 
+## Docker / OrbStack
+
+OrbStack is the local Docker runtime for this project. The default local loop uses it for
+Postgres, while FastAPI and Vite run directly on the host for faster reloads:
+
+```bash
+bin/dev
+```
+
+For a container-style backend deployment path, the repo also includes a backend image and
+Compose service:
+
+```bash
+docker compose up --build api
+```
+
+That starts Postgres, runs Alembic migrations, and serves FastAPI on `http://localhost:8000`.
+The Vite frontend is still run separately unless you choose to containerize the frontend too:
+
+```bash
+npm --prefix frontend run dev
+```
+
 ## Vercel
 
 This repo includes:
@@ -83,7 +106,7 @@ This repo includes:
 Set these environment variables in Vercel before deploying:
 
 ```bash
-APP_NAME=LegionHealthHackathonGediminasP
+APP_NAME=CopayGuard
 DATABASE_URL=<hosted-postgres-asyncpg-url>
 GROK_API_KEY=<optional-until-agent-chat-is-needed>
 GROK_BASE_URL=https://api.x.ai/v1

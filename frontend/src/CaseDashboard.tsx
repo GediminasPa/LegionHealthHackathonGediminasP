@@ -24,7 +24,7 @@ export default function CaseDashboard({
             <span>{intake.medicationName || "Medication"}</span>
           </p>
         </div>
-        <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${statusClass}`}>
+        <span className={`ui-sans border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${statusClass}`}>
           {status}
         </span>
       </div>
@@ -34,15 +34,15 @@ export default function CaseDashboard({
         <Fact label="Diagnosis" value={intake.diagnosis || "Unknown"} />
         <Fact label="Quote" value={formatCents(intake.quotedPriceCents)} />
       </dl>
-      <div className="mt-4 rounded-2xl border border-[#ffc36a]/35 bg-[#3f321e] p-3">
-        <p className="ui-sans flex items-center gap-2 text-sm font-semibold text-[#ffe0a8]">
+      <div className="mt-4 border border-white/12 bg-[#2b2928] p-3">
+        <p className="ui-sans flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[#f7f2ec]">
           <ShieldCheck size={16} />
           Guardrails
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(flags.length ? flags : ["confirm eligibility", "no guaranteed savings"]).map((flag) => (
             <span
-              className="ui-sans rounded-full border border-[#ffc36a]/35 bg-[#2f2b24] px-2.5 py-1 text-xs font-semibold text-[#ffe0a8]"
+              className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]"
               key={flag}
             >
               {flag.replaceAll("_", " ")}
@@ -56,16 +56,16 @@ export default function CaseDashboard({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-3">
-      <dt className="ui-sans text-xs font-semibold text-[#c7c0b8]">{label}</dt>
+    <div className="border border-white/12 bg-[#2b2928] px-4 py-3">
+      <dt className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">{label}</dt>
       <dd className="mt-1 break-words text-sm font-semibold text-[#f7f2ec]">{value}</dd>
     </div>
   );
 }
 
 function statusTone(status: MedicationSnapshot["status"]): string {
-  if (status === "ready") return "border-[#76d7a6]/35 bg-[#213a30] text-[#a9f0c8]";
-  if (status === "error") return "border-[#ff8a7c]/35 bg-[#4a2723] text-[#ffd9d3]";
-  if (status === "investigating") return "border-[#ef6844]/35 bg-[#3a302c] text-[#ffb199]";
-  return "border-white/12 bg-white/5 text-[#c7c0b8]";
+  if (status === "ready") return "border-[#5a5a5a] bg-[#1f1e1d] text-[#f7f2ec]";
+  if (status === "error") return "border-[#ff8a7c]/45 bg-[#1f1e1d] text-[#ffd9d3]";
+  if (status === "investigating") return "border-[#ef6844]/60 bg-[#1f1e1d] text-[#ef6844]";
+  return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
 }

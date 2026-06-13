@@ -6,19 +6,19 @@ export default function SourcesPanel({ sources }: { sources: SourceRecord[] }) {
     <section className="medical-surface rounded-lg p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-[#f7f2ec]">Sources</h2>
-        <span className="ui-sans rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[#c7c0b8]">
+        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
           {sources.length} checked
         </span>
       </div>
       <div className="mt-3 space-y-3">
         {sources.length === 0 ? (
-          <p className="ui-sans rounded-2xl border border-dashed border-white/18 bg-white/5 p-3 text-sm text-[#c7c0b8]">
+          <p className="ui-sans border border-dashed border-white/12 bg-[#2b2928] p-3 text-sm text-[#c7c0b8]">
             No sources yet.
           </p>
         ) : null}
         {sources.map((source) => (
           <a
-            className="button-press block rounded-2xl border border-white/12 bg-white/5 p-4 hover:border-[#ef6844]/45 hover:bg-[#342d2a]"
+            className="button-press block border border-white/12 bg-[#2b2928] p-4 hover:border-[#ef6844]/70"
             href={source.url}
             key={source.id}
             rel="noreferrer"
