@@ -12,11 +12,13 @@ from pydantic_ai.models.function import (
 )
 
 from app.agents.medication_affordability import (
+    analyze_case,
     extract_facts_from_pasted_text,
     medication_affordability_agent,
     public_program_copay_guardrail,
 )
 from app.config import get_settings
+from app.schemas.medication_affordability import MedicationAffordabilityIntakeCreate
 
 models.ALLOW_MODEL_REQUESTS = False
 
@@ -93,6 +95,15 @@ async def test_session_create_read_and_message_append(client: httpx.AsyncClient)
     assert body["intake"]["patient_name"] == "Maria Chen"
     assert body["messages"][0]["content"] == "Can you check foundation help?"
     assert body["case_state"]["state_json"]["cost_tracker"]["quoted_price_cents"] == 210000
+    assert body["case_state"]["state_json"]["case_moment"] == "sticker_shock"
+    assert (
+        body["case_state"]["state_json"]["case_analysis"]["insurance_route"]["route_type"]
+        == "medicare"
+    )
+    assert (
+        "manufacturer_copay_card_as_secondary_payer"
+        in (body["case_state"]["state_json"]["blocked_routes"])
+    )
 
 
 async def test_session_create_allows_missing_patient_name(client: httpx.AsyncClient) -> None:
@@ -161,6 +172,10 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
             yield {
                 0: DeltaToolCall(name="get_session_context", json_args="{}"),
                 1: DeltaToolCall(
+                    name="run_case_preflight",
+                    json_args="{}",
+                ),
+                2: DeltaToolCall(
                     name="save_source",
                     json_args=json.dumps(
                         {
@@ -173,7 +188,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
                         }
                     ),
                 ),
-                2: DeltaToolCall(
+                3: DeltaToolCall(
                     name="save_option",
                     json_args=json.dumps(
                         {
@@ -187,7 +202,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
                         }
                     ),
                 ),
-                3: DeltaToolCall(
+                4: DeltaToolCall(
                     name="update_cost_tracker",
                     json_args=json.dumps(
                         {
@@ -199,7 +214,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
                         }
                     ),
                 ),
-                4: DeltaToolCall(
+                5: DeltaToolCall(
                     name="ask_question",
                     json_args=json.dumps(
                         {
@@ -208,7 +223,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
                         }
                     ),
                 ),
-                5: DeltaToolCall(
+                6: DeltaToolCall(
                     name="save_artifact",
                     json_args=json.dumps(
                         {
@@ -241,6 +256,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
 
     assert response.status_code == 200
     assert "event: tool_call" in response.text
+    assert "run_case_preflight" in response.text
     assert "event: question" in response.text
     assert "event: agent_delta" in response.text
     assert "event: run_done" in response.text
@@ -348,3 +364,16 @@ def test_pasted_text_extraction_and_public_program_guardrail() -> None:
     assert public_program_copay_guardrail("Medicare Part D") is not None
     assert public_program_copay_guardrail("commercial") is None
     assert public_program_copay_guardrail("Cigna ValueScript") is None
+
+
+def test_case_analysis_classifies_coupon_behavior_and_specialist_plan() -> None:
+    intake = MedicationAffordabilityIntakeCreate.model_validate(_commercial_payload()["intake"])
+    analysis = analyze_case(intake)
+
+    assert analysis.case_moment == "coupon_behavior"
+    assert "assistance_not_counting_to_deductible" in analysis.flags
+    assert analysis.insurance_route.route_type == "commercial"
+    assert "accumulator_or_maximizer_status" in analysis.missing_facts
+    assert any(
+        step.specialist == "accumulator_maximizer_detector" for step in analysis.specialist_plan
+    )

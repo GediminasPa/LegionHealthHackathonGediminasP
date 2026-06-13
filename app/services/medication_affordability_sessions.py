@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.medication_affordability import (
     MedicationAgentDeps,
+    analyze_case,
     build_medication_agent_prompt,
     build_medication_model,
     curated_resource_hints,
@@ -19,7 +20,6 @@ from app.agents.medication_affordability import (
     extract_facts_from_pasted_text,
     medication_affordability_agent,
     patient_display_name,
-    public_program_copay_guardrail,
 )
 from app.models import (
     MedicationAffordabilityActivity,
@@ -70,11 +70,8 @@ def generate_access_token() -> str:
 
 
 def build_initial_case_state(intake: MedicationAffordabilityIntakeCreate) -> dict[str, Any]:
+    analysis = analyze_case(intake)
     facts = extract_facts_from_pasted_text(intake.pasted_text)
-    guardrail = public_program_copay_guardrail(intake.insurance_type)
-    flags = facts["flags"][:]
-    if guardrail:
-        flags.append("public_program_copay_card_guardrail")
     cost_tracker = CostTrackerState(
         quoted_price_cents=intake.quoted_price_cents,
         current_best_label="Pharmacy quote",
@@ -97,8 +94,13 @@ def build_initial_case_state(intake: MedicationAffordabilityIntakeCreate) -> dic
         "cost_tracker": cost_tracker.model_dump(mode="json"),
         "options": [],
         "questions": [],
-        "flags": flags,
+        "flags": analysis.flags,
         "facts": facts,
+        "case_moment": analysis.case_moment,
+        "case_analysis": analysis.model_dump(mode="json"),
+        "blocked_routes": analysis.blocked_routes,
+        "missing_facts": analysis.missing_facts,
+        "specialist_plan": [step.model_dump(mode="json") for step in analysis.specialist_plan],
     }
 
 

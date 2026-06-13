@@ -18,6 +18,8 @@ The agent should not try to be a live PBM-connected price oracle. For the hackat
 - [02-real-demo-case-enbrel-wellcare.md](02-real-demo-case-enbrel-wellcare.md): a concrete demo using a real drug and real plan.
 - [03-agent-routing-rules.md](03-agent-routing-rules.md): deterministic routing logic for the agent.
 - [04-demo-agent-output.md](04-demo-agent-output.md): sample output the agent can show in the demo.
+- [05-agent-architecture.md](05-agent-architecture.md): orchestrator and specialist-agent split.
+- [06-source-registry.md](06-source-registry.md): integration source list with status and review cadence.
 - [demo-routing-data.json](demo-routing-data.json): structured data seed for the prototype.
 - [sources.md](sources.md): source links used for the demo and pitch.
 
@@ -39,4 +41,3 @@ Do not claim:
 - "We know the exact live patient copay before adjudication."
 - "We automatically submit prior authorizations or PAP applications."
 - "We can guarantee a lower price for every patient."
-

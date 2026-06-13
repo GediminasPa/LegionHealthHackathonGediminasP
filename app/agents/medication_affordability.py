@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +13,16 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.medication_affordability_specialists import (
+    analyze_case,
+    curated_resource_hints,
+    draft_next_artifact,
+    public_program_copay_guardrail,
+)
+from app.agents.medication_affordability_specialists.artifact_writer import medication_label
+from app.agents.medication_affordability_specialists.document_extraction import (
+    extract_facts_from_pasted_text as extract_typed_facts_from_pasted_text,
+)
 from app.config import get_settings
 from app.models import (
     MedicationAffordabilityActivity,
@@ -38,45 +47,28 @@ from app.services.medication_affordability_search import grok_web_search as run_
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
+__all__ = [
+    "MedicationAgentDeps",
+    "analyze_case",
+    "build_medication_agent_prompt",
+    "build_medication_model",
+    "curated_resource_hints",
+    "draft_next_artifact",
+    "extract_facts_from_pasted_text",
+    "medication_affordability_agent",
+    "medication_agent_api_key_is_set",
+    "medication_agent_required_api_key_name",
+    "patient_display_name",
+    "public_program_copay_guardrail",
+]
+
 
 def load_medication_prompt() -> str:
     return (PROMPTS_DIR / "medication_affordability.md").read_text()
 
 
 def extract_facts_from_pasted_text(text: str | None) -> dict[str, Any]:
-    value = (text or "").lower()
-    flags: list[str] = []
-    if (
-        "will not count toward your deductible" in value
-        or "not count toward deductible" in value
-        or "does not apply to your deductible" in value
-        or "do not count toward your deductible" in value
-    ):
-        flags.append("assistance_not_counting_to_deductible")
-    oop_pattern = re.compile(
-        r"(will not|not|does not|do not|won't|cannot|excluded from|not applied to).{0,80}"
-        r"(out[- ]of[- ]pocket|oop)"
-    )
-    if oop_pattern.search(value):
-        flags.append("oop_maximum_language")
-    if "variable copay" in value:
-        flags.append("variable_copay_program")
-    if "prudentrx" in value:
-        flags.append("prudentrx")
-    if "saveonsp" in value:
-        flags.append("saveonsp")
-    return {"flags": flags, "has_accumulator_signal": bool(flags)}
-
-
-def public_program_copay_guardrail(insurance_type: str) -> str | None:
-    value = insurance_type.lower()
-    public_pattern = re.compile(r"\b(medicare|medicaid|tricare|va|champva)\b")
-    if public_pattern.search(value):
-        return (
-            "Do not present manufacturer copay cards as valid for Medicare, Medicaid, "
-            "TRICARE, VA, CHAMPVA, or other government-program coverage."
-        )
-    return None
+    return extract_typed_facts_from_pasted_text(text).model_dump(mode="json")
 
 
 def medication_agent_api_key_is_set() -> bool:
@@ -148,6 +140,7 @@ def build_medication_agent_prompt(
         [
             "Start or continue this medication affordability investigation.",
             "Always begin by calling get_session_context so you are using persisted state.",
+            "Then call run_case_preflight before ranking routes or drafting artifacts.",
             "Use tools to persist every material source, option, question, cost update, "
             "activity, and artifact you create.",
             "Do not claim a price reduction unless a tool-persisted source supports it; "
@@ -166,87 +159,13 @@ def build_medication_agent_prompt(
             "Persisted state snapshot:",
             str(state.state_json),
             "",
+            "Current orchestrator preflight:",
+            str(state.state_json.get("case_analysis") or {}),
+            "",
             "Recent chat transcript:",
             transcript,
         ]
     )
-
-
-def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str, str]:
-    medication = medication_label(intake)
-    patient = patient_display_name(intake.patient_name, "Not provided")
-    if "medicare" in intake.insurance_type.lower():
-        return {
-            "artifact_type": "checklist",
-            "title": "Medicare affordability call checklist",
-            "content": "\n".join(
-                [
-                    f"Patient: {patient}",
-                    f"Medication: {medication}",
-                    "",
-                    "Ask the plan:",
-                    "1. What is the expected cost for the next fill at the preferred pharmacy?",
-                    "2. Is the Medicare Prescription Payment Plan available for this member "
-                    "and fill?",
-                    "3. Are lower-cost formulary alternatives available for the prescriber "
-                    "to review?",
-                    "",
-                    "Screen separately for Extra Help, independent foundation support, "
-                    "and PAP eligibility.",
-                ]
-            ),
-        }
-    return {
-        "artifact_type": "call_script",
-        "title": "Accumulator plan-call script",
-        "content": "\n".join(
-            [
-                f"Patient: {patient}",
-                f"Medication: {medication}",
-                "",
-                "Ask the plan or PBM:",
-                "1. If manufacturer assistance is used, will it count toward the deductible?",
-                "2. Will it count toward the out-of-pocket maximum?",
-                "3. Is enrollment in PrudentRx, SaveOnSP, or a variable copay program required?",
-                "4. What will the true patient responsibility be after assistance is exhausted?",
-            ]
-        ),
-    }
-
-
-def curated_resource_hints(intake: MedicationAffordabilityIntakeCreate) -> list[dict[str, Any]]:
-    tags = ["enbrel"] if "enbrel" in intake.medication_name.lower() else []
-    if "medicare" in intake.insurance_type.lower():
-        tags.extend(["medicare", "foundation"])
-    else:
-        tags.extend(["commercial", "accumulator"])
-    resources = search_curated_resources(
-        f"{intake.medication_name} {intake.insurance_type} {intake.diagnosis or ''}",
-        tags=tags,
-        limit=8,
-    )
-    if "medicare" in intake.insurance_type.lower():
-        preferred = [
-            "medicare-prescription-payment-plan",
-            "medicare-extra-help",
-            "amgen-safety-net-foundation",
-            "pan-foundation-ra",
-            "healthwell-autoimmune-medicare",
-        ]
-    else:
-        preferred = [
-            "enbrel-support",
-            "kff-copay-adjustment-programs",
-            "goodrx-specialty-context",
-        ]
-    order = {resource_id: index for index, resource_id in enumerate(preferred)}
-    return sorted(resources, key=lambda resource: order.get(str(resource["id"]), 99))[:4]
-
-
-def medication_label(intake: MedicationAffordabilityIntakeCreate) -> str:
-    if intake.strength and intake.strength.lower() not in intake.medication_name.lower():
-        return f"{intake.medication_name} {intake.strength}"
-    return intake.medication_name
 
 
 def patient_display_name(patient_name: str | None, fallback: str = "the patient") -> str:
@@ -313,6 +232,39 @@ async def get_session_context(ctx: RunContext[MedicationAgentDeps]) -> dict[str,
         },
     )
     return result
+
+
+@medication_affordability_agent.tool(sequential=True)
+async def run_case_preflight(ctx: RunContext[MedicationAgentDeps]) -> dict[str, Any]:
+    """Run deterministic case classification, eligibility routing, and specialist planning."""
+    ctx.deps.emit("tool_call", {"name": "run_case_preflight", "args": {}})
+    intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
+    analysis = analyze_case(_intake_create_from_model(intake))
+    payload = analysis.model_dump(mode="json")
+    patch = {
+        "case_moment": analysis.case_moment,
+        "case_analysis": payload,
+        "flags": analysis.flags,
+        "blocked_routes": analysis.blocked_routes,
+        "missing_facts": analysis.missing_facts,
+        "specialist_plan": [step.model_dump(mode="json") for step in analysis.specialist_plan],
+    }
+    state = await _merge_case_state(ctx.deps.session, ctx.deps.session_id, patch)
+    await ctx.deps.session.commit()
+    ctx.deps.emit("case_state_patch", {"patch": patch, "state": state.state_json})
+    ctx.deps.emit(
+        "tool_result",
+        {
+            "name": "run_case_preflight",
+            "result": {
+                "case_moment": analysis.case_moment,
+                "flags": analysis.flags,
+                "blocked_routes": analysis.blocked_routes,
+                "missing_facts": analysis.missing_facts,
+            },
+        },
+    )
+    return payload
 
 
 @medication_affordability_agent.tool(sequential=True)
