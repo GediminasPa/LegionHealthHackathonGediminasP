@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bin/check)",
+      "Bash(bin/up)",
+      "Bash(bin/dev:*)",
+      "Bash(bin/db:*)",
+      "Bash(uv run:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv add:*)",
+      "Bash(npm --prefix frontend run:*)",
+      "Bash(npm --prefix frontend install:*)",
+      "Bash(docker compose:*)"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Start Postgres and apply migrations.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+docker compose up -d --wait db
+uv run alembic upgrade head
+echo "Database up and migrated."

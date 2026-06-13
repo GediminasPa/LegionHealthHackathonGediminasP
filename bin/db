@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# DB helpers: bin/db [shell|migrate|revision <msg>|reset|logs]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+set -a
+[ -f .env ] && source .env
+set +a
+
+cmd="${1:-shell}"
+case "$cmd" in
+  shell)
+    docker compose exec db psql -U "${POSTGRES_USER:-app}" "${POSTGRES_DB:-app}"
+    ;;
+  migrate)
+    uv run alembic upgrade head
+    ;;
+  revision)
+    shift
+    uv run alembic revision --autogenerate -m "$*"
+    ;;
+  reset)
+    docker compose down -v
+    docker compose up -d --wait db
+    uv run alembic upgrade head
+    echo "Database reset and migrated."
+    ;;
+  logs)
+    docker compose logs -f db
+    ;;
+  *)
+    echo "usage: bin/db [shell|migrate|revision <msg>|reset|logs]" >&2
+    exit 1
+    ;;
+esac

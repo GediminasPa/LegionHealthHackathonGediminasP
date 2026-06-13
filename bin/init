@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# One-time setup after "Use this template". Usage: bin/init <project-name>
+# Idempotent: safe to re-run; never clobbers an existing .env.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+NAME="${1:-}"
+if [ -z "$NAME" ]; then
+  echo "usage: bin/init <project-name>   (kebab-case, e.g. med-finder)" >&2
+  exit 1
+fi
+if ! [[ "$NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+  echo "project name must be kebab-case (lowercase letters, digits, hyphens)" >&2
+  exit 1
+fi
+
+step() { printf '\n\033[1m── %s\033[0m\n' "$1"; }
+
+step "Checking required tools"
+missing=()
+command -v uv >/dev/null 2>&1 || missing+=("uv      → https://docs.astral.sh/uv/getting-started/installation/")
+command -v node >/dev/null 2>&1 || missing+=("node    → https://nodejs.org (see .nvmrc)")
+command -v docker >/dev/null 2>&1 || missing+=("docker  → https://docs.docker.com/desktop/")
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "Missing tools:" >&2
+  printf '  %s\n' "${missing[@]}" >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is installed but not running — start Docker Desktop and re-run bin/init." >&2
+  exit 1
+fi
+echo "uv, node, docker: ok"
+
+step "Renaming project to '$NAME'"
+CURRENT=$(grep -m1 '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+if [ "$CURRENT" = "$NAME" ]; then
+  echo "already named '$NAME' — skipping"
+else
+  for f in pyproject.toml docker-compose.yml .env.example CLAUDE.md README.md \
+           app/config.py frontend/package.json frontend/index.html; do
+    perl -pi -e "s/\Q$CURRENT\E/$NAME/g" "$f"
+  done
+  echo "renamed '$CURRENT' → '$NAME'"
+fi
+
+step "Creating .env"
+if [ -f .env ]; then
+  echo ".env already exists — leaving it untouched"
+else
+  cp .env.example .env
+  echo "created .env from .env.example (add your ANTHROPIC_API_KEY there)"
+fi
+
+step "Installing Python dependencies (uv sync)"
+uv sync
+
+step "Installing frontend dependencies"
+npm --prefix frontend install
+
+step "Starting Postgres"
+docker compose up -d --wait db
+
+step "Applying migrations"
+uv run alembic upgrade head
+
+step "Installing git hooks"
+git config core.hooksPath .githooks
+
+printf '\n\033[1;32m%s is ready.\033[0m\n\n' "$NAME"
+cat <<'EOF'
+Next steps:
+  1. bin/dev                 # API on :8000, app on :5173
+  2. open http://localhost:5173
+  3. paste your ANTHROPIC_API_KEY into .env to enable the agent chat
+EOF

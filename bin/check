@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Unified quality gate: format, lint, types, tests, frontend. Run before every push.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+step() { printf '\n\033[1m── %s\033[0m\n' "$1"; }
+
+step "ruff format"
+uv run ruff format --check .
+
+step "ruff lint"
+uv run ruff check .
+
+step "pyright"
+uv run pyright
+
+step "pytest"
+if docker info >/dev/null 2>&1; then
+  docker compose up -d --wait db
+  uv run pytest
+else
+  echo "WARNING: Docker is not running — skipping tests (they need Postgres)." >&2
+fi
+
+if [ -d frontend ] && [ -f frontend/package.json ]; then
+  step "frontend typecheck + build"
+  npm --prefix frontend run check
+fi
+
+printf '\n\033[1;32mAll checks passed.\033[0m\n'
