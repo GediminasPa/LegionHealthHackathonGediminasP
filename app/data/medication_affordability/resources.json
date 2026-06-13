@@ -1,0 +1,92 @@
+[
+  {
+    "id": "medicare-part-d-costs",
+    "name": "Medicare Part D costs",
+    "url": "https://www.medicare.gov/drug-coverage-part-d/costs-for-medicare-drug-coverage",
+    "domains": ["medicare.gov"],
+    "tags": ["medicare", "part-d", "costs"],
+    "query_templates": ["Medicare Part D {medication} cost sharing 2026"],
+    "notes_for_agent": "Use for Medicare cost-sharing context, not a live adjudicated copay.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "medicare-prescription-payment-plan",
+    "name": "Medicare Prescription Payment Plan",
+    "url": "https://www.medicare.gov/prescription-payment-plan",
+    "domains": ["medicare.gov"],
+    "tags": ["medicare", "cash-flow-smoothing"],
+    "query_templates": ["Medicare Prescription Payment Plan specialty drug monthly payments"],
+    "notes_for_agent": "This smooths cash flow; do not represent it as a total price reduction.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "medicare-extra-help",
+    "name": "Medicare Extra Help",
+    "url": "https://www.ssa.gov/medicare/part-d-extra-help",
+    "domains": ["ssa.gov", "medicare.gov"],
+    "tags": ["medicare", "low-income-subsidy"],
+    "query_templates": ["Extra Help Medicare Part D eligibility"],
+    "notes_for_agent": "Ask about income/assets before suggesting likely eligibility.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "enbrel-support",
+    "name": "Enbrel Support",
+    "url": "https://www.enbrel.com/support",
+    "domains": ["enbrel.com"],
+    "tags": ["enbrel", "manufacturer", "commercial"],
+    "query_templates": ["Enbrel copay card terms government insurance"],
+    "notes_for_agent": "Manufacturer copay support is generally not valid for Medicare or other public programs.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "amgen-safety-net-foundation",
+    "name": "Amgen Safety Net Foundation",
+    "url": "https://www.amgensafetynetfoundation.com/",
+    "domains": ["amgensafetynetfoundation.com"],
+    "tags": ["enbrel", "pap", "foundation"],
+    "query_templates": ["Amgen Safety Net Foundation Enbrel eligibility"],
+    "notes_for_agent": "Potential PAP route; eligibility and availability must be confirmed.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "pan-foundation-ra",
+    "name": "PAN Foundation rheumatoid arthritis fund",
+    "url": "https://www.panfoundation.org/disease-funds/rheumatoid-arthritis/",
+    "domains": ["panfoundation.org"],
+    "tags": ["foundation", "rheumatoid-arthritis", "medicare"],
+    "query_templates": ["PAN Foundation rheumatoid arthritis fund status"],
+    "notes_for_agent": "Fund status changes; include checked-at timing and uncertainty.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "healthwell-autoimmune-medicare",
+    "name": "HealthWell AutoImmune Medicare Access Fund",
+    "url": "https://www.healthwellfoundation.org/fund/autoimmune-medicare-access/",
+    "domains": ["healthwellfoundation.org"],
+    "tags": ["foundation", "autoimmune", "medicare"],
+    "query_templates": ["HealthWell AutoImmune Medicare Access fund status"],
+    "notes_for_agent": "Fund status changes; include checked-at timing and uncertainty.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "goodrx-specialty-context",
+    "name": "GoodRx cash discount context",
+    "url": "https://www.goodrx.com/",
+    "domains": ["goodrx.com"],
+    "tags": ["cash", "discount", "deductible-warning"],
+    "query_templates": ["GoodRx {medication} specialty pharmacy cash price"],
+    "notes_for_agent": "Warn that cash discount spend may not count toward deductible or OOP maximum.",
+    "last_checked_at": "2026-06-13"
+  },
+  {
+    "id": "kff-copay-adjustment-programs",
+    "name": "KFF copay adjustment program background",
+    "url": "https://www.kff.org/",
+    "domains": ["kff.org"],
+    "tags": ["accumulator", "maximizer", "commercial"],
+    "query_templates": ["KFF copay accumulator maximizer patient assistance"],
+    "notes_for_agent": "Use for background; rely on plan documents for the user's actual benefit design.",
+    "last_checked_at": "2026-06-13"
+  }
+]

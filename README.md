@@ -42,6 +42,26 @@ AGENT_MODEL=grok:grok-4.3
 
 The chat UI streams through `POST /api/agent/chat`. Anthropic remains available only as a fallback by setting `AGENT_MODEL=anthropic:<model>` and `ANTHROPIC_API_KEY`.
 
+## Medication Affordability Workspace
+
+The primary app screen is now the medication affordability investigation workspace. It
+starts with intake, includes Medicare Enbrel and commercial accumulator demo cases, creates
+a persisted session, and streams typed investigation events into chat, cost tracking,
+activity, sources, options, and artifacts.
+
+Core endpoints:
+
+- `GET /api/medication-affordability/demo-cases`
+- `POST /api/medication-affordability/sessions`
+- `GET /api/medication-affordability/sessions/{session_id}`
+- `POST /api/medication-affordability/sessions/{session_id}/messages`
+- `POST /api/medication-affordability/sessions/{session_id}/runs`
+- `POST /api/medication-affordability/sessions/{session_id}/artifacts`
+
+The v1 run endpoint uses a persisted mocked investigation stream that follows the planned
+event contract. The medication-specific Grok/xAI Responses helper and curated resource
+registry are in place for the real agent loop.
+
 ## Day-to-day
 
 ```bash

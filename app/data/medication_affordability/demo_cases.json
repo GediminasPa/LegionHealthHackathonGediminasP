@@ -1,0 +1,40 @@
+[
+  {
+    "id": "medicare-enbrel-wellcare",
+    "title": "Medicare Enbrel / Wellcare",
+    "summary": "PA approved, high Part D specialty cost, and Medicare-specific assistance paths.",
+    "intake": {
+      "patient_name": "Maria Chen",
+      "state": "CA",
+      "medication_name": "Enbrel SureClick 50 mg/mL",
+      "strength": "50 mg/mL",
+      "dose": "weekly",
+      "quoted_price_cents": 210000,
+      "insurance_type": "Medicare Part D",
+      "pa_status": "approved",
+      "plan_name": "Wellcare Value Script PDP",
+      "plan_id": "S4802-163-0",
+      "diagnosis": "rheumatoid arthritis",
+      "pasted_text": null
+    }
+  },
+  {
+    "id": "commercial-enbrel-accumulator",
+    "title": "Commercial Enbrel accumulator / maximizer",
+    "summary": "Employer PPO specialty case with plan language suggesting accumulator or maximizer rules.",
+    "intake": {
+      "patient_name": "Jordan Lee",
+      "state": "CA",
+      "medication_name": "Enbrel SureClick 50 mg/mL",
+      "strength": "50 mg/mL",
+      "dose": "weekly",
+      "quoted_price_cents": 185000,
+      "insurance_type": "commercial",
+      "pa_status": "approved",
+      "plan_name": "Employer-sponsored PPO with specialty pharmacy benefit",
+      "plan_id": null,
+      "diagnosis": "rheumatoid arthritis",
+      "pasted_text": "Specialty medication copay assistance will not count toward your deductible and will not apply to your out-of-pocket maximum. A variable copay program may apply. Members may be contacted by PrudentRx or SaveOnSP for enrollment."
+    }
+  }
+]

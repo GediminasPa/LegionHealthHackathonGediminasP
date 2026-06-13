@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@assistant-ui/react": "^0.14.18",
+    "lucide-react": "^1.18.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
