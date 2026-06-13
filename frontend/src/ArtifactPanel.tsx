@@ -24,6 +24,10 @@ export default function ArtifactPanel({ artifacts }: { artifacts: ArtifactRecord
                 <p className="ui-sans mt-1 text-xs font-semibold text-[#c7c0b8]">
                   {artifact.artifactType.replaceAll("_", " ")} / {artifact.status}
                 </p>
+                <p className="mt-1 text-xs text-stone-500">
+                  {artifact.createdAt ? `Created ${formatDate(artifact.createdAt)}` : null}
+                  {artifact.sourceIds.length ? ` · Sources ${artifact.sourceIds.join(", ")}` : null}
+                </p>
               </div>
               <button
                 aria-label="Copy artifact"
@@ -42,4 +46,15 @@ export default function ArtifactPanel({ artifacts }: { artifacts: ArtifactRecord
       </div>
     </section>
   );
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

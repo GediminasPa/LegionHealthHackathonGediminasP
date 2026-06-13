@@ -10,9 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.medication_affordability import (
+    MedicationAgentDeps,
+    build_medication_agent_prompt,
+    build_medication_model,
     curated_resource_hints,
     draft_next_artifact,
     extract_facts_from_pasted_text,
+    medication_affordability_agent,
     public_program_copay_guardrail,
 )
 from app.models import (
@@ -263,6 +267,27 @@ def _event(
     )
 
 
+async def _start_run(db: AsyncSession, session_id: int) -> MedicationAffordabilityRun:
+    run = MedicationAffordabilityRun(session_id=session_id, status="running")
+    db.add(run)
+    await db.flush()
+    await db.refresh(run)
+    return run
+
+
+async def _mark_run_completed(db: AsyncSession, run: MedicationAffordabilityRun) -> None:
+    run.status = "completed"
+    run.finished_at = datetime.now(UTC)
+    await db.commit()
+
+
+async def _mark_run_failed(db: AsyncSession, run: MedicationAffordabilityRun, error: str) -> None:
+    run.status = "failed"
+    run.error = error
+    run.finished_at = datetime.now(UTC)
+    await db.commit()
+
+
 async def run_mock_investigation(
     db: AsyncSession, session_id: int
 ) -> AsyncIterator[MedicationAffordabilityStreamEvent]:
@@ -270,167 +295,283 @@ async def run_mock_investigation(
     if intake is None:
         raise ValueError(f"Session {session_id} not found")
     intake_data = MedicationAffordabilityIntakeCreate.model_validate(intake, from_attributes=True)
-    run = MedicationAffordabilityRun(session_id=session_id, status="running")
-    db.add(run)
-    await db.flush()
-    await db.refresh(run)
-
-    started = MedicationAffordabilityActivity(
-        session_id=session_id,
-        run_id=run.id,
-        event_type="activity_started",
-        title="Reading intake and plan text",
-        summary="The agent is extracting insurance context and affordability signals.",
-        payload_json={"step": "intake"},
-    )
-    db.add(started)
-    await db.commit()
-    yield _event(
-        "activity_started",
-        session_id,
-        run.id,
-        {"id": started.id, "title": started.title, "summary": started.summary},
-    )
-
-    intro = (
-        f"I am investigating {intake.medication_name} for {intake.patient_name}. "
-        "I will separate true price reductions from payment smoothing and "
-        "eligibility-dependent help."
-    )
-    message = MedicationAffordabilityMessage(
-        session_id=session_id,
-        role="assistant",
-        content=intro,
-        metadata_json={"run_id": run.id},
-    )
-    db.add(message)
-    await db.commit()
-    yield _event("agent_message", session_id, run.id, {"content": intro})
-
-    hints = curated_resource_hints(intake_data)
-    saved_sources: list[MedicationAffordabilitySource] = []
-    for resource in hints[:3]:
-        source = MedicationAffordabilitySource(
+    run = await _start_run(db, session_id)
+    try:
+        started = MedicationAffordabilityActivity(
             session_id=session_id,
-            title=resource["name"],
-            url=resource["url"],
-            source_type="curated_resource",
-            publisher=(resource.get("domains") or [None])[0],
-            checked_at=datetime.now(UTC),
-            summary=resource["notes_for_agent"],
-            confidence=0.8,
+            run_id=run.id,
+            event_type="activity_started",
+            title="Reading intake and plan text",
+            summary="The agent is extracting insurance context and affordability signals.",
+            payload_json={"step": "intake"},
         )
-        db.add(source)
-        await db.flush()
-        saved_sources.append(source)
+        db.add(started)
+        await db.commit()
         yield _event(
-            "source_added",
+            "activity_started",
+            session_id,
+            run.id,
+            {"id": started.id, "title": started.title, "summary": started.summary},
+        )
+
+        intro = (
+            f"I am investigating {intake.medication_name} for {intake.patient_name}. "
+            "I will separate true price reductions from payment smoothing and "
+            "eligibility-dependent help."
+        )
+        message = MedicationAffordabilityMessage(
+            session_id=session_id,
+            role="assistant",
+            content=intro,
+            metadata_json={"run_id": run.id},
+        )
+        db.add(message)
+        await db.commit()
+        yield _event("agent_message", session_id, run.id, {"content": intro})
+
+        hints = curated_resource_hints(intake_data)
+        saved_sources: list[MedicationAffordabilitySource] = []
+        for resource in hints[:3]:
+            source = MedicationAffordabilitySource(
+                session_id=session_id,
+                title=resource["name"],
+                url=resource["url"],
+                source_type="curated_resource",
+                publisher=(resource.get("domains") or [None])[0],
+                checked_at=datetime.now(UTC),
+                summary=resource["notes_for_agent"],
+                confidence=0.8,
+            )
+            db.add(source)
+            await db.flush()
+            saved_sources.append(source)
+            yield _event(
+                "source_added",
+                session_id,
+                run.id,
+                {
+                    "id": source.id,
+                    "title": source.title,
+                    "url": source.url,
+                    "publisher": source.publisher,
+                    "summary": source.summary,
+                    "checked_at": source.checked_at.isoformat() if source.checked_at else None,
+                    "confidence": source.confidence,
+                },
+            )
+
+        is_medicare = "medicare" in intake.insurance_type.lower()
+        has_accumulator = extract_facts_from_pasted_text(intake.pasted_text)[
+            "has_accumulator_signal"
+        ]
+        if is_medicare:
+            option = {
+                "id": "medicare-payment-plan",
+                "title": "Medicare Prescription Payment Plan",
+                "rank": 1,
+                "summary": (
+                    "May smooth the first-fill cost over monthly bills, but does not reduce "
+                    "total drug cost."
+                ),
+                "confidence": "needs_user_confirmation",
+                "drop_type": "cash_flow_smoothing",
+                "source_ids": [source.id for source in saved_sources],
+            }
+            cost_tracker = {
+                "quoted_price_cents": intake.quoted_price_cents,
+                "current_best_label": "Payment smoothing route found",
+                "current_best_estimated_price_cents": intake.quoted_price_cents,
+                "potential_drop_cents": 0,
+                "drop_type": "cash_flow_smoothing",
+                "confidence": "needs_user_confirmation",
+                "explanation": (
+                    "This can reduce the immediate cash hit, not the total allowed cost."
+                ),
+                "source_ids": [source.id for source in saved_sources],
+            }
+        else:
+            option = {
+                "id": "commercial-copay-support-with-warning",
+                "title": "Commercial support plus accumulator check",
+                "rank": 1,
+                "summary": (
+                    "Manufacturer support may lower today's charge if the patient is eligible, "
+                    "but the pasted plan language suggests deductible/OOP credit may be limited."
+                ),
+                "confidence": (
+                    "needs_user_confirmation" if has_accumulator else "eligibility_unknown"
+                ),
+                "drop_type": "unknown",
+                "source_ids": [source.id for source in saved_sources],
+            }
+            cost_tracker = {
+                "quoted_price_cents": intake.quoted_price_cents,
+                "current_best_label": (
+                    "Commercial support route needs eligibility and plan confirmation"
+                ),
+                "current_best_estimated_price_cents": None,
+                "potential_drop_cents": None,
+                "drop_type": "unknown",
+                "confidence": "needs_user_confirmation",
+                "explanation": (
+                    "Confirm copay-program eligibility and accumulator/maximizer rules before "
+                    "estimating today's charge or deductible/OOP credit."
+                ),
+                "source_ids": [source.id for source in saved_sources],
+            }
+
+        state = await update_case_state(
+            db,
+            session_id,
+            {"options": [option], "cost_tracker": cost_tracker},
+        )
+        yield _event("option_added", session_id, run.id, option)
+        yield _event("cost_tracker_update", session_id, run.id, cost_tracker)
+        yield _event(
+            "case_state_patch",
             session_id,
             run.id,
             {
-                "id": source.id,
-                "title": source.title,
-                "url": source.url,
-                "publisher": source.publisher,
-                "summary": source.summary,
+                "patch": {"options": [option], "cost_tracker": cost_tracker},
+                "state": state.state_json,
             },
         )
 
-    is_medicare = "medicare" in intake.insurance_type.lower()
-    has_accumulator = extract_facts_from_pasted_text(intake.pasted_text)["has_accumulator_signal"]
-    if is_medicare:
-        option = {
-            "id": "medicare-payment-plan",
-            "title": "Medicare Prescription Payment Plan",
-            "rank": 1,
-            "summary": (
-                "May smooth the first-fill cost over monthly bills, but does not reduce "
-                "total drug cost."
-            ),
-            "confidence": "found_source",
-            "drop_type": "cash_flow_smoothing",
-        }
-        cost_tracker = {
-            "quoted_price_cents": intake.quoted_price_cents,
-            "current_best_label": "Payment smoothing route found",
-            "current_best_estimated_price_cents": intake.quoted_price_cents,
-            "potential_drop_cents": 0,
-            "drop_type": "cash_flow_smoothing",
-            "confidence": "found_source",
-            "explanation": "This can reduce the immediate cash hit, not the total allowed cost.",
-            "source_ids": [source.id for source in saved_sources],
-        }
-    else:
-        option = {
-            "id": "commercial-copay-support-with-warning",
-            "title": "Commercial support plus accumulator check",
-            "rank": 1,
-            "summary": (
-                "Manufacturer support may lower today's charge, but the pasted plan language "
-                "suggests deductible/OOP credit may be limited."
-            ),
-            "confidence": "needs_user_confirmation" if has_accumulator else "eligibility_unknown",
-            "drop_type": "price_reduction",
-        }
-        cost_tracker = {
-            "quoted_price_cents": intake.quoted_price_cents,
-            "current_best_label": "Commercial support route needs plan confirmation",
-            "current_best_estimated_price_cents": 500,
-            "potential_drop_cents": max(intake.quoted_price_cents - 500, 0),
-            "drop_type": "price_reduction",
-            "confidence": "needs_user_confirmation",
-            "explanation": "Confirm accumulator/maximizer rules before relying on copay support.",
-            "source_ids": [source.id for source in saved_sources],
-        }
+        artifact_data = draft_next_artifact(intake_data)
+        source_ids = [source.id for source in saved_sources]
+        artifact = MedicationAffordabilityArtifact(
+            session_id=session_id,
+            artifact_type=artifact_data["artifact_type"],
+            title=artifact_data["title"],
+            content=artifact_data["content"],
+            status="ready",
+            metadata_json={"source_ids": source_ids},
+        )
+        db.add(artifact)
+        completed = MedicationAffordabilityActivity(
+            session_id=session_id,
+            run_id=run.id,
+            event_type="activity_completed",
+            title="Prepared next-step artifact",
+            summary="A practical call script or checklist is ready for review.",
+            payload_json={"artifact_type": artifact.artifact_type},
+        )
+        db.add(completed)
+        await _mark_run_completed(db, run)
+        await db.refresh(artifact)
+        yield _event(
+            "artifact_created",
+            session_id,
+            run.id,
+            {
+                "id": artifact.id,
+                "artifact_type": artifact.artifact_type,
+                "title": artifact.title,
+                "content": artifact.content,
+                "status": artifact.status,
+                "source_ids": source_ids,
+                "created_at": artifact.created_at.isoformat() if artifact.created_at else None,
+                "updated_at": artifact.updated_at.isoformat() if artifact.updated_at else None,
+            },
+        )
+        yield _event(
+            "activity_completed",
+            session_id,
+            run.id,
+            {"id": completed.id, "title": completed.title, "summary": completed.summary},
+        )
+        yield _event("run_done", session_id, run.id, {"status": "completed"})
+    except Exception as exc:
+        await _mark_run_failed(db, run, str(exc))
+        yield _event("run_error", session_id, run.id, {"status": "failed", "message": str(exc)})
 
-    state = await update_case_state(
-        db,
-        session_id,
-        {"options": [option], "cost_tracker": cost_tracker},
-    )
-    yield _event("option_added", session_id, run.id, option)
-    yield _event("cost_tracker_update", session_id, run.id, cost_tracker)
-    yield _event("case_state_patch", session_id, run.id, {"state": state.state_json})
 
-    artifact_data = draft_next_artifact(intake_data)
-    artifact = MedicationAffordabilityArtifact(
-        session_id=session_id,
-        artifact_type=artifact_data["artifact_type"],
-        title=artifact_data["title"],
-        content=artifact_data["content"],
-        status="ready",
-    )
-    db.add(artifact)
-    completed = MedicationAffordabilityActivity(
-        session_id=session_id,
-        run_id=run.id,
-        event_type="activity_completed",
-        title="Prepared next-step artifact",
-        summary="A practical call script or checklist is ready for review.",
-        payload_json={"artifact_type": artifact.artifact_type},
-    )
-    db.add(completed)
-    run.status = "completed"
-    run.finished_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(artifact)
-    yield _event(
-        "artifact_created",
-        session_id,
-        run.id,
-        {
-            "id": artifact.id,
-            "artifact_type": artifact.artifact_type,
-            "title": artifact.title,
-            "content": artifact.content,
-            "status": artifact.status,
-            "source_ids": [source.id for source in saved_sources],
-        },
-    )
-    yield _event(
-        "activity_completed",
-        session_id,
-        run.id,
-        {"id": completed.id, "title": completed.title, "summary": completed.summary},
-    )
-    yield _event("run_done", session_id, run.id, {"status": "completed"})
+async def run_agent_investigation(
+    db: AsyncSession, session_id: int
+) -> AsyncIterator[MedicationAffordabilityStreamEvent]:
+    intake = await get_intake_model(db, session_id)
+    state = await get_case_state_model(db, session_id)
+    if intake is None or state is None:
+        raise ValueError(f"Session {session_id} not found")
+
+    messages = (
+        await db.scalars(
+            select(MedicationAffordabilityMessage)
+            .where(MedicationAffordabilityMessage.session_id == session_id)
+            .order_by(MedicationAffordabilityMessage.created_at, MedicationAffordabilityMessage.id)
+        )
+    ).all()
+    run = await _start_run(db, session_id)
+    deps = MedicationAgentDeps(session=db, session_id=session_id, run_id=run.id)
+
+    try:
+        started = MedicationAffordabilityActivity(
+            session_id=session_id,
+            run_id=run.id,
+            event_type="activity_started",
+            title="Starting agent investigation",
+            summary=(
+                "The agent is loading session context and planning the next affordability step."
+            ),
+            payload_json={"mode": "agent"},
+        )
+        db.add(started)
+        await db.commit()
+        yield _event(
+            "activity_started",
+            session_id,
+            run.id,
+            {"id": started.id, "title": started.title, "summary": started.summary},
+        )
+
+        prompt = build_medication_agent_prompt(intake, state, list(messages))
+        async with medication_affordability_agent.run_stream(
+            prompt,
+            deps=deps,
+            model=build_medication_model(),
+        ) as result:
+            final_parts: list[str] = []
+            async for delta in result.stream_text(delta=True):
+                for event in deps.drain_events():
+                    yield event
+                if delta:
+                    final_parts.append(delta)
+                    yield _event("agent_delta", session_id, run.id, {"delta": delta})
+            for event in deps.drain_events():
+                yield event
+            output = await result.get_output()
+            final_text = str(output or "".join(final_parts)).strip()
+
+        if final_text:
+            message = MedicationAffordabilityMessage(
+                session_id=session_id,
+                role="assistant",
+                content=final_text,
+                metadata_json={"run_id": run.id, "mode": "agent"},
+            )
+            db.add(message)
+            await db.commit()
+            yield _event("agent_message", session_id, run.id, {"content": final_text})
+
+        completed = MedicationAffordabilityActivity(
+            session_id=session_id,
+            run_id=run.id,
+            event_type="activity_completed",
+            title="Agent investigation step completed",
+            summary="The agent finished this investigation pass and persisted its findings.",
+            payload_json={"mode": "agent"},
+        )
+        db.add(completed)
+        await _mark_run_completed(db, run)
+        yield _event(
+            "activity_completed",
+            session_id,
+            run.id,
+            {"id": completed.id, "title": completed.title, "summary": completed.summary},
+        )
+        yield _event("run_done", session_id, run.id, {"status": "completed"})
+    except Exception as exc:
+        for event in deps.drain_events():
+            yield event
+        await _mark_run_failed(db, run, str(exc))
+        yield _event("run_error", session_id, run.id, {"status": "failed", "message": str(exc)})

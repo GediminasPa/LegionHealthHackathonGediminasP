@@ -6,6 +6,10 @@ from collections.abc import AsyncIterator
 from fastapi import APIRouter, HTTPException
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
+from app.agents.medication_affordability import (
+    medication_agent_api_key_is_set,
+    medication_agent_required_api_key_name,
+)
 from app.db import SessionDep
 from app.models import MedicationAffordabilityArtifact
 from app.schemas import (
@@ -69,15 +73,22 @@ async def start_run(
     data: MedicationAffordabilityRunRequest,
     session: SessionDep,
 ) -> EventSourceResponse:
-    if data.mode != "mock":
+    if data.mode == "agent" and not medication_agent_api_key_is_set():
+        key_name = medication_agent_required_api_key_name()
         raise HTTPException(
-            status_code=400, detail="Only mocked medication runs are enabled in v1."
+            status_code=503,
+            detail=f"{key_name} is not set; use mode=mock only for explicit demo/test runs.",
         )
     if await med_sessions.get_session_model(session, session_id) is None:
         raise HTTPException(status_code=404, detail="Medication affordability session not found")
 
     async def stream() -> AsyncIterator[ServerSentEvent]:
-        async for event in med_sessions.run_mock_investigation(session, session_id):
+        runner = (
+            med_sessions.run_mock_investigation
+            if data.mode == "mock"
+            else med_sessions.run_agent_investigation
+        )
+        async for event in runner(session, session_id):
             yield ServerSentEvent(
                 event=event.type,
                 data=json.dumps(event.model_dump(mode="json")),
@@ -100,6 +111,7 @@ async def create_artifact(
         title=data.title,
         content=data.content,
         status=data.status,
+        metadata_json=data.metadata_json,
     )
     session.add(artifact)
     await session.commit()

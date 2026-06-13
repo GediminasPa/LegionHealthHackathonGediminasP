@@ -164,12 +164,13 @@ export async function postMedicationMessage(sessionId: string, content: string):
 
 export async function* streamMedicationRun(
   sessionId: string,
+  mode: "agent" | "mock" = "agent",
   signal?: AbortSignal,
 ): AsyncGenerator<MedicationRunEvent> {
   const res = await fetch(`/api/medication-affordability/sessions/${sessionId}/runs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: "mock" }),
+    body: JSON.stringify({ mode }),
     signal,
   });
   if (!res.ok) throw await errorFromResponse(res);
@@ -308,17 +309,26 @@ function normalizeSource(raw: Record<string, unknown>): SourceRecord {
     publisher: raw.publisher == null ? null : String(raw.publisher),
     summary: raw.summary == null ? null : String(raw.summary),
     checkedAt: raw.checked_at == null ? null : String(raw.checked_at),
+    confidence: raw.confidence == null ? null : Number(raw.confidence),
   };
 }
 
 function normalizeArtifact(raw: Record<string, unknown>): ArtifactRecord {
+  const metadata =
+    raw.metadata_json && typeof raw.metadata_json === "object"
+      ? (raw.metadata_json as Record<string, unknown>)
+      : {};
   return {
     id: String(raw.id),
     artifactType: String(raw.artifact_type ?? "artifact"),
     title: String(raw.title ?? ""),
     content: String(raw.content ?? ""),
     status: String(raw.status ?? "draft"),
-    sourceIds: [],
+    sourceIds: Array.isArray(metadata.source_ids)
+      ? (metadata.source_ids as Array<number | string>)
+      : [],
+    createdAt: raw.created_at == null ? null : String(raw.created_at),
+    updatedAt: raw.updated_at == null ? null : String(raw.updated_at),
   };
 }
 

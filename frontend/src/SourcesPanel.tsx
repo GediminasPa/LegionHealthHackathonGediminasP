@@ -34,9 +34,21 @@ export default function SourcesPanel({ sources }: { sources: SourceRecord[] }) {
             {source.summary ? (
               <span className="ui-sans mt-1 block text-sm leading-6 text-[#c7c0b8]">{source.summary}</span>
             ) : null}
+            <span className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-stone-500">
+              {source.checkedAt ? <span>Checked {formatDate(source.checkedAt)}</span> : null}
+              {source.confidence == null ? null : (
+                <span>Confidence {Math.round(source.confidence * 100)}%</span>
+              )}
+            </span>
           </a>
         ))}
       </div>
     </section>
   );
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }

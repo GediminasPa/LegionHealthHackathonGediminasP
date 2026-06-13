@@ -1,9 +1,24 @@
+import json
+from collections.abc import AsyncIterator
+
 import httpx
+from pydantic_ai import models
+from pydantic_ai.messages import ModelMessage
+from pydantic_ai.models.function import (
+    AgentInfo,
+    DeltaToolCall,
+    DeltaToolCalls,
+    FunctionModel,
+)
 
 from app.agents.medication_affordability import (
     extract_facts_from_pasted_text,
+    medication_affordability_agent,
     public_program_copay_guardrail,
 )
+from app.config import get_settings
+
+models.ALLOW_MODEL_REQUESTS = False
 
 
 def _demo_payload() -> dict[str, object]:
@@ -21,6 +36,28 @@ def _demo_payload() -> dict[str, object]:
             "plan_id": "S4802-163-0",
             "diagnosis": "rheumatoid arthritis",
             "pasted_text": None,
+        }
+    }
+
+
+def _commercial_payload() -> dict[str, object]:
+    return {
+        "intake": {
+            "patient_name": "Jordan Lee",
+            "state": "CA",
+            "medication_name": "Enbrel SureClick",
+            "strength": "50 mg/mL",
+            "dose": "weekly",
+            "quoted_price_cents": 185000,
+            "insurance_type": "Commercial",
+            "pa_status": "approved",
+            "plan_name": "Acme PPO",
+            "plan_id": None,
+            "diagnosis": "rheumatoid arthritis",
+            "pasted_text": (
+                "Manufacturer assistance will not count toward your deductible or "
+                "out-of-pocket maximum."
+            ),
         }
     }
 
@@ -87,6 +124,202 @@ async def test_run_stream_emits_typed_events_and_persists_state(
     assert payload["case_state"]["state_json"]["options"][0]["id"] == "medicare-payment-plan"
 
 
+async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
+    client: httpx.AsyncClient,
+) -> None:
+    created = await client.post("/api/medication-affordability/sessions", json=_demo_payload())
+    session_id = created.json()["session_id"]
+    await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/messages",
+        json={"content": "I am not eligible for Extra Help; focus on foundation grants."},
+    )
+
+    seen_model_prompts: list[str] = []
+
+    async def stream_agent(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        del info
+        seen_model_prompts.append(str(messages[0]))
+        if len(messages) == 1:
+            yield {
+                0: DeltaToolCall(name="get_session_context", json_args="{}"),
+                1: DeltaToolCall(
+                    name="save_source",
+                    json_args=json.dumps(
+                        {
+                            "title": "PAN Foundation rheumatoid arthritis fund",
+                            "url": "https://www.panfoundation.org/disease-funds/rheumatoid-arthritis/",
+                            "source_type": "curated_resource",
+                            "publisher": "panfoundation.org",
+                            "summary": "Fund status changes and must be checked.",
+                            "confidence": 0.7,
+                        }
+                    ),
+                ),
+                2: DeltaToolCall(
+                    name="save_option",
+                    json_args=json.dumps(
+                        {
+                            "id": "foundation-grants",
+                            "title": "Foundation grant screening",
+                            "summary": "Screen RA foundation funds before assuming affordability.",
+                            "confidence": "needs_user_confirmation",
+                            "drop_type": "coverage_path",
+                            "rank": 1,
+                            "source_ids": [1],
+                        }
+                    ),
+                ),
+                3: DeltaToolCall(
+                    name="update_cost_tracker",
+                    json_args=json.dumps(
+                        {
+                            "current_best_label": "Foundation screening needed",
+                            "explanation": "Fund availability and eligibility are unresolved.",
+                            "drop_type": "coverage_path",
+                            "confidence": "needs_user_confirmation",
+                            "source_ids": [1],
+                        }
+                    ),
+                ),
+                4: DeltaToolCall(
+                    name="ask_question",
+                    json_args=json.dumps(
+                        {
+                            "question": "What is the household size and income range?",
+                            "question_id": "income-screen",
+                        }
+                    ),
+                ),
+                5: DeltaToolCall(
+                    name="save_artifact",
+                    json_args=json.dumps(
+                        {
+                            "artifact_type": "checklist",
+                            "title": "Foundation screening checklist",
+                            "content": (
+                                "Confirm income, household size, diagnosis, and fund status."
+                            ),
+                            "source_ids": [1],
+                        }
+                    ),
+                ),
+            }
+        else:
+            yield "I will focus on foundation grant screening and avoid assuming Extra Help."
+
+    settings = get_settings()
+    original_key = settings.grok_api_key
+    settings.grok_api_key = "test-key"
+    try:
+        with medication_affordability_agent.override(
+            model=FunctionModel(stream_function=stream_agent)
+        ):
+            response = await client.post(
+                f"/api/medication-affordability/sessions/{session_id}/runs",
+                json={"mode": "agent"},
+            )
+    finally:
+        settings.grok_api_key = original_key
+
+    assert response.status_code == 200
+    assert "event: tool_call" in response.text
+    assert "event: question" in response.text
+    assert "event: agent_delta" in response.text
+    assert "event: run_done" in response.text
+    assert "foundation grants" in seen_model_prompts[0]
+
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    payload = detail.json()
+    assert payload["runs"][0]["status"] == "completed"
+    assert payload["sources"][0]["confidence"] == 0.7
+    assert payload["case_state"]["state_json"]["questions"][0]["id"] == "income-screen"
+    assert payload["case_state"]["state_json"]["options"][0]["id"] == "foundation-grants"
+    assert payload["artifacts"][0]["metadata_json"]["source_ids"] == [1]
+    assert payload["messages"][-1]["role"] == "assistant"
+
+
+async def test_agent_run_without_key_returns_503_instead_of_mock(
+    client: httpx.AsyncClient,
+) -> None:
+    created = await client.post("/api/medication-affordability/sessions", json=_demo_payload())
+    session_id = created.json()["session_id"]
+
+    settings = get_settings()
+    original_key = settings.grok_api_key
+    settings.grok_api_key = ""
+    try:
+        response = await client.post(
+            f"/api/medication-affordability/sessions/{session_id}/runs",
+            json={"mode": "agent"},
+        )
+    finally:
+        settings.grok_api_key = original_key
+
+    assert response.status_code == 503
+    assert "GROK_API_KEY" in response.json()["detail"]
+
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    assert detail.json()["runs"] == []
+
+
+async def test_agent_stream_error_persists_failed_run(client: httpx.AsyncClient) -> None:
+    created = await client.post("/api/medication-affordability/sessions", json=_demo_payload())
+    session_id = created.json()["session_id"]
+
+    async def failing_stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        del messages, info
+        raise RuntimeError("model failed")
+        yield ""
+
+    settings = get_settings()
+    original_key = settings.grok_api_key
+    settings.grok_api_key = "test-key"
+    try:
+        with medication_affordability_agent.override(
+            model=FunctionModel(stream_function=failing_stream)
+        ):
+            response = await client.post(
+                f"/api/medication-affordability/sessions/{session_id}/runs",
+                json={"mode": "agent"},
+            )
+    finally:
+        settings.grok_api_key = original_key
+
+    assert response.status_code == 200
+    assert "event: run_error" in response.text
+    assert "model failed" in response.text
+
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    run = detail.json()["runs"][0]
+    assert run["status"] == "failed"
+    assert "model failed" in run["error"]
+
+
+async def test_mock_commercial_run_does_not_claim_unsupported_savings(
+    client: httpx.AsyncClient,
+) -> None:
+    created = await client.post(
+        "/api/medication-affordability/sessions", json=_commercial_payload()
+    )
+    session_id = created.json()["session_id"]
+
+    response = await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/runs",
+        json={"mode": "mock"},
+    )
+
+    assert response.status_code == 200
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    tracker = detail.json()["case_state"]["state_json"]["cost_tracker"]
+    assert tracker["current_best_estimated_price_cents"] is None
+    assert tracker["potential_drop_cents"] is None
+    assert tracker["drop_type"] == "unknown"
+
+
 def test_pasted_text_extraction_and_public_program_guardrail() -> None:
     facts = extract_facts_from_pasted_text(
         "Assistance will not count toward your deductible or out-of-pocket maximum. "
@@ -98,3 +331,4 @@ def test_pasted_text_extraction_and_public_program_guardrail() -> None:
     assert "prudentrx" in facts["flags"]
     assert public_program_copay_guardrail("Medicare Part D") is not None
     assert public_program_copay_guardrail("commercial") is None
+    assert public_program_copay_guardrail("Cigna ValueScript") is None

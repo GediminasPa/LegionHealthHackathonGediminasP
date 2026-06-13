@@ -69,6 +69,7 @@ export type SourceRecord = {
   publisher?: string | null;
   summary?: string | null;
   checkedAt?: string | null;
+  confidence?: number | null;
 };
 
 export type ArtifactRecord = {
@@ -78,6 +79,8 @@ export type ArtifactRecord = {
   content: string;
   status: string;
   sourceIds: Array<number | string>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type MedicationSnapshot = {

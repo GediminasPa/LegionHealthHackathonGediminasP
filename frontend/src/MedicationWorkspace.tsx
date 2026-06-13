@@ -23,6 +23,7 @@ type Props = {
 };
 
 type Tab = "chat" | "case" | "activity" | "artifact";
+const STREAMING_ASSISTANT_ID = "assistant-streaming";
 
 const mobileTabs: Array<{ id: Tab; label: string; icon: typeof MessageCircle }> = [
   { id: "chat", label: "Chat", icon: MessageCircle },
@@ -41,21 +42,67 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
       setSnapshot((current) => {
         if (!current) return current;
         const payload = event.payload;
+        if (event.type === "agent_delta") {
+          return {
+            ...current,
+            messages: applyAssistantDelta(
+              current.messages,
+              String(payload.delta ?? ""),
+            ),
+            status: "investigating",
+          };
+        }
         if (event.type === "agent_message") {
           return {
             ...current,
-            messages: [
-              ...current.messages,
-              assistantMessage(String(payload.content ?? ""), current.messages.length),
-            ],
+            messages: applyFinalAssistantMessage(
+              current.messages,
+              String(payload.content ?? ""),
+            ),
           };
         }
-        if (event.type === "activity_started" || event.type === "activity_completed") {
+        if (
+          event.type === "activity_started" ||
+          event.type === "activity_updated" ||
+          event.type === "activity_completed"
+        ) {
           const activity = activityFromPayload(payload, event.type);
           return {
             ...current,
             status: event.type === "activity_started" ? "investigating" : current.status,
             activities: upsertById(current.activities, activity),
+          };
+        }
+        if (event.type === "tool_call" || event.type === "tool_result") {
+          return {
+            ...current,
+            activities: [
+              ...current.activities,
+              toolActivityFromPayload(payload, event.type, current.activities.length),
+            ],
+          };
+        }
+        if (event.type === "question") {
+          const question = String(payload.question ?? payload.content ?? "");
+          return {
+            ...current,
+            messages: question
+              ? [
+                  ...current.messages,
+                  assistantMessage(`I need one detail: ${question}`, current.messages.length),
+                ]
+              : current.messages,
+            activities: [
+              ...current.activities,
+              {
+                id: `question-${Date.now()}-${current.activities.length}`,
+                eventType: "question",
+                title: "Question asked",
+                summary: question,
+                status: "warning",
+                createdAt: new Date().toISOString(),
+              },
+            ],
           };
         }
         if (event.type === "source_added") {
@@ -64,7 +111,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
             sources: upsertById(current.sources, sourceFromPayload(payload)),
           };
         }
-        if (event.type === "option_added") {
+        if (event.type === "option_added" || event.type === "option_updated") {
           return {
             ...current,
             options: upsertById(current.options, {
@@ -108,7 +155,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
             },
           };
         }
-        if (event.type === "artifact_created") {
+        if (event.type === "artifact_created" || event.type === "artifact_updated") {
           const artifact = artifactFromPayload(payload);
           return { ...current, artifacts: upsertById(current.artifacts, artifact) };
         }
@@ -117,27 +164,55 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           return {
             ...current,
             flags: Array.isArray(state.flags) ? (state.flags as string[]) : current.flags,
+            options: Array.isArray(state.options)
+              ? (state.options as typeof current.options)
+              : current.options,
             status: "investigating",
           };
         }
         if (event.type === "run_done") return { ...current, status: "ready" };
-        if (event.type === "run_error") return { ...current, status: "error" };
+        if (event.type === "run_error") {
+          const message = String(payload.message ?? "The investigation run failed.");
+          return {
+            ...current,
+            status: "error",
+            messages: [
+              ...current.messages.filter((item) => item.id !== STREAMING_ASSISTANT_ID),
+              assistantMessage(message, current.messages.length),
+            ],
+            activities: [
+              ...current.activities,
+              {
+                id: `run-error-${Date.now()}`,
+                eventType: "run_error",
+                title: "Run failed",
+                summary: message,
+                status: "error",
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          };
+        }
         return current;
       });
     },
     [setSnapshot],
   );
 
-  const startRun = useCallback(async () => {
+  const startRun = useCallback(async (mode: "agent" | "mock" = "agent") => {
     setRunning(true);
+    setSnapshot((current) => (current ? { ...current, status: "investigating" } : current));
     try {
-      for await (const event of streamMedicationRun(snapshot.sessionId)) {
+      for await (const event of streamMedicationRun(snapshot.sessionId, mode)) {
         applyEvent(event);
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The investigation run failed.";
+      applyEvent({ type: "run_error", payload: { message } });
     } finally {
       setRunning(false);
     }
-  }, [applyEvent, snapshot.sessionId]);
+  }, [applyEvent, setSnapshot, snapshot.sessionId]);
 
   useEffect(() => {
     if (snapshot.status === "intake" && !autoRunStarted.current) {
@@ -203,6 +278,18 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
         >
           <div className="grid gap-4 pb-6">
             <CostTracker tracker={snapshot.costTracker} />
+            {snapshot.status === "error" ? (
+              <div className="rounded-2xl border border-[#ef6844]/30 bg-[#302721] p-3 shadow-[0_16px_40px_rgb(0_0_0/0.18)]">
+                <button
+                  className="button-press ui-sans rounded-full bg-[#ef6844] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgb(239_104_68/0.22)] hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#69534c] disabled:shadow-none"
+                  disabled={running}
+                  type="button"
+                  onClick={() => void startRun("mock")}
+                >
+                  Run mock demo
+                </button>
+              </div>
+            ) : null}
             <div
               className={
                 activeTab === "case" || activeTab === "chat" ? "grid gap-4" : "hidden lg:grid lg:gap-4"
@@ -234,6 +321,31 @@ function assistantMessage(content: string, index: number): ChatMessage {
   };
 }
 
+function applyAssistantDelta(messages: ChatMessage[], delta: string): ChatMessage[] {
+  if (!delta) return messages;
+  const index = messages.findIndex((message) => message.id === STREAMING_ASSISTANT_ID);
+  if (index === -1) {
+    return [
+      ...messages,
+      {
+        id: STREAMING_ASSISTANT_ID,
+        role: "assistant",
+        content: delta,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  }
+  return messages.map((message, messageIndex) =>
+    messageIndex === index ? { ...message, content: `${message.content}${delta}` } : message,
+  );
+}
+
+function applyFinalAssistantMessage(messages: ChatMessage[], content: string): ChatMessage[] {
+  const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
+  if (!content.trim()) return filtered;
+  return [...filtered, assistantMessage(content, filtered.length)];
+}
+
 function activityFromPayload(payload: Record<string, unknown>, eventType: string): ActivityEvent {
   return {
     id: String(payload.id ?? payload.title ?? eventType),
@@ -245,6 +357,32 @@ function activityFromPayload(payload: Record<string, unknown>, eventType: string
   };
 }
 
+function toolActivityFromPayload(
+  payload: Record<string, unknown>,
+  eventType: string,
+  index: number,
+): ActivityEvent {
+  const name = String(payload.name ?? "tool");
+  return {
+    id: `${eventType}-${name}-${Date.now()}-${index}`,
+    eventType,
+    title: eventType === "tool_call" ? `Calling ${name}` : `Finished ${name}`,
+    summary: summarizeToolPayload(payload),
+    status: eventType === "tool_call" ? "running" : "completed",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function summarizeToolPayload(payload: Record<string, unknown>): string {
+  const value = payload.result ?? payload.args;
+  if (!value) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function sourceFromPayload(payload: Record<string, unknown>): SourceRecord {
   return {
     id: String(payload.id),
@@ -252,7 +390,8 @@ function sourceFromPayload(payload: Record<string, unknown>): SourceRecord {
     url: String(payload.url ?? ""),
     publisher: payload.publisher == null ? null : String(payload.publisher),
     summary: payload.summary == null ? null : String(payload.summary),
-    checkedAt: new Date().toISOString(),
+    checkedAt: payload.checked_at == null ? new Date().toISOString() : String(payload.checked_at),
+    confidence: payload.confidence == null ? null : Number(payload.confidence),
   };
 }
 
@@ -264,6 +403,8 @@ function artifactFromPayload(payload: Record<string, unknown>): ArtifactRecord {
     content: String(payload.content ?? ""),
     status: String(payload.status ?? "draft"),
     sourceIds: Array.isArray(payload.source_ids) ? (payload.source_ids as Array<number | string>) : [],
+    createdAt: payload.created_at == null ? null : String(payload.created_at),
+    updatedAt: payload.updated_at == null ? null : String(payload.updated_at),
   };
 }
 

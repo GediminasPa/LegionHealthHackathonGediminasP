@@ -132,6 +132,7 @@ class MedicationAffordabilityArtifact(Base):
     title: Mapped[str] = mapped_column(String(250))
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="draft")
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -174,6 +174,7 @@ class MedicationAffordabilityArtifactRead(BaseModel):
     title: str
     content: str
     status: str
+    metadata_json: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -197,7 +198,7 @@ class MedicationAffordabilityDemoCase(BaseModel):
 
 
 class MedicationAffordabilityRunRequest(BaseModel):
-    mode: Literal["mock", "agent"] = "mock"
+    mode: Literal["mock", "agent"] = "agent"
 
 
 class MedicationAffordabilityStreamEvent(BaseModel):
