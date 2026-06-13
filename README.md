@@ -8,7 +8,7 @@ FastAPI + Postgres + Pydantic AI agent + React frontend, copied from `hackathon-
 |---|---|
 | API | FastAPI, async SQLAlchemy 2.0, Alembic, pydantic-settings |
 | DB | Postgres 16 via `docker-compose.yml` |
-| AI | Pydantic AI agent using Anthropic Claude, streaming SSE chat endpoint, prompts in `prompts/` |
+| AI | Pydantic AI agent using xAI Grok, streaming SSE chat endpoint, prompts in `prompts/` |
 | Frontend | Vite + React + TypeScript + Tailwind, typed API client, streaming chat UI |
 | Quality | ruff, pyright, pytest, git hooks, `bin/check`, GitHub Action |
 
@@ -28,7 +28,7 @@ bin/dev
 
 Open `http://localhost:5173`. The health badge should show the API and DB status.
 
-To enable the AI chat, add `ANTHROPIC_API_KEY` to `.env` and restart `bin/dev`.
+To enable the AI chat, add `GROK_API_KEY` or `XAI_API_KEY` to `.env` and restart `bin/dev`.
 
 ## Day-to-day
 
@@ -53,8 +53,9 @@ Set these environment variables in Vercel before deploying:
 ```bash
 APP_NAME=LegionHealthHackathonGediminasP
 DATABASE_URL=<hosted-postgres-asyncpg-url>
-ANTHROPIC_API_KEY=<optional-until-agent-chat-is-needed>
-AGENT_MODEL=anthropic:claude-sonnet-4-6
+GROK_API_KEY=<optional-until-agent-chat-is-needed>
+GROK_BASE_URL=https://api.x.ai/v1
+AGENT_MODEL=grok:grok-4.3
 ```
 
 Use hosted Postgres for Vercel. The local `docker-compose.yml` database is only for development through Docker or OrbStack.

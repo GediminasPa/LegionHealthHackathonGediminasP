@@ -5,8 +5,9 @@ import pytest
 from pydantic_ai import models
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls, FunctionModel
+from pydantic_ai.models.openai import OpenAIChatModel
 
-from app.agents import assistant
+from app.agents import assistant, build_model
 from app.config import get_settings
 
 models.ALLOW_MODEL_REQUESTS = False
@@ -15,22 +16,29 @@ models.ALLOW_MODEL_REQUESTS = False
 @pytest.fixture
 def agent_key_set() -> Iterator[None]:
     settings = get_settings()
-    original = settings.anthropic_api_key
-    settings.anthropic_api_key = "test-key"
+    original = settings.grok_api_key
+    settings.grok_api_key = "test-key"
     yield
-    settings.anthropic_api_key = original
+    settings.grok_api_key = original
 
 
 async def test_chat_without_key_returns_503(client: httpx.AsyncClient) -> None:
     settings = get_settings()
-    original = settings.anthropic_api_key
-    settings.anthropic_api_key = ""
+    original = settings.grok_api_key
+    settings.grok_api_key = ""
     try:
         response = await client.post("/api/agent/chat", json={"message": "hi"})
     finally:
-        settings.anthropic_api_key = original
+        settings.grok_api_key = original
     assert response.status_code == 503
-    assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+    assert "GROK_API_KEY" in response.json()["detail"]
+
+
+def test_build_model_defaults_to_grok(agent_key_set: None) -> None:
+    model = build_model()
+
+    assert isinstance(model, OpenAIChatModel)
+    assert model.model_name == "grok-4.3"
 
 
 async def _stream_with_tool_call(

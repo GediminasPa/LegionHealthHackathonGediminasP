@@ -13,7 +13,7 @@ FastAPI + Postgres + Pydantic AI starter. Everything is pre-wired — at a hacka
 ## Stack
 
 - **Backend:** FastAPI, async SQLAlchemy 2.0, Alembic, Postgres 16 (docker-compose), pydantic-settings (`app/config.py`, reads `.env`)
-- **AI:** Pydantic AI agent in `app/agents/assistant.py`, Anthropic provider. System prompts live in `prompts/*.md`. Streaming chat endpoint: `POST /api/agent/chat` (SSE).
+- **AI:** Pydantic AI agent in `app/agents/assistant.py`, xAI Grok via the OpenAI-compatible provider. System prompts live in `prompts/*.md`. Streaming chat endpoint: `POST /api/agent/chat` (SSE).
 - **Frontend:** Vite + React + TS + Tailwind in `frontend/`. Dev server proxies `/api` to the backend. Typed client in `frontend/src/api.ts`.
 - **Tooling:** uv, ruff, pyright, pytest (async, single session event loop)
 
@@ -21,7 +21,7 @@ FastAPI + Postgres + Pydantic AI starter. Everything is pre-wired — at a hacka
 
 - New entity flow: model (`app/models/`) → migration (`bin/db revision "<msg>"`, then check the generated file) → schema (`app/schemas/`) → service (`app/services/`) → router (`app/routers/`, registered in `app/main.py`) → test (`tests/`). Follow `Item` as the reference example.
 - Agent tools are `@assistant.tool` functions in `app/agents/assistant.py`; they get DB access via `ctx.deps.session`.
-- The Anthropic model is built per-request (`build_model()`) because pydantic-settings does not export `.env` to `os.environ`. In tests, use `assistant.override(model=...)` with `TestModel`/`FunctionModel` — never real API calls (`models.ALLOW_MODEL_REQUESTS = False`).
+- The LLM model is built per-request (`build_model()`) because pydantic-settings does not export `.env` to `os.environ`. Use `AGENT_MODEL=grok:<model>` with `GROK_API_KEY` by default, or `AGENT_MODEL=anthropic:<model>` with `ANTHROPIC_API_KEY` if needed. In tests, use `assistant.override(model=...)` with `TestModel`/`FunctionModel` — never real API calls (`models.ALLOW_MODEL_REQUESTS = False`).
 - Tests run against a real Postgres test database (`<db>_test`), created automatically by `tests/conftest.py`.
 - Line length 100, Python 3.12. Run `uv run ruff format .` before committing.
 

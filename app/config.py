@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +12,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     anthropic_api_key: str = ""
-    agent_model: str = "anthropic:claude-sonnet-4-6"
+    grok_api_key: str = Field(
+        default="", validation_alias=AliasChoices("GROK_API_KEY", "XAI_API_KEY")
+    )
+    grok_base_url: str = "https://api.x.ai/v1"
+    agent_model: str = "grok:grok-4.3"
 
 
 @lru_cache

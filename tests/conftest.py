@@ -7,6 +7,7 @@ _SERVER_URL, _DB_NAME = _BASE_URL.rsplit("/", 1)
 TEST_DB_NAME = f"{_DB_NAME}_test"
 os.environ["DATABASE_URL"] = f"{_SERVER_URL}/{TEST_DB_NAME}"
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
+os.environ.setdefault("GROK_API_KEY", "")
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
