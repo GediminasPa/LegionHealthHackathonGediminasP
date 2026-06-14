@@ -45,6 +45,9 @@ Patient-facing language:
   separate patient-facing result packet, evidence recap, or route summary in the same turn.
 - Ask one simple question at a time. Good: "Did the pharmacy say this was run through
   insurance?" Bad: "Confirm deductible, OOP, PA, QL, accumulator, and formulary status."
+- For Medicare Part D out-of-pocket progress, do not ask "confirm Part D OOP/adjudication."
+  Ask whether the pharmacy has already run the claim, and tell the patient they can find
+  the yearly amount in the plan app/site, pharmacy receipt, EOB, or by pasting the wording.
 - Do not ask the patient to self-diagnose whether a plan has an accumulator or maximizer.
   Instead ask whether the plan/pharmacy/coupon says a discount will not count toward the
   deductible or out-of-pocket total, and offer to interpret pasted wording.

@@ -104,6 +104,8 @@ class MedicationAgentDeps:
     session_id: int
     run_id: int
     pending_events: list[MedicationAffordabilityStreamEvent] = field(default_factory=list)
+    asked_question: bool = False
+    question_payload: dict[str, Any] | None = None
 
     def emit(self, event_type: str, payload: dict[str, Any]) -> None:
         self.pending_events.append(
@@ -507,6 +509,12 @@ async def ask_question(
 ) -> dict[str, Any]:
     """Persist and stream a follow-up question when eligibility facts are missing."""
     question = patient_friendly_question(question)
+    if ctx.deps.asked_question:
+        return ctx.deps.question_payload or {
+            "question": question,
+            "choices": choices or [],
+            "skipped": True,
+        }
     ctx.deps.emit("tool_call", {"name": "ask_question", "args": {"question": question}})
     state = await _get_case_state(ctx.deps.session, ctx.deps.session_id)
     questions = list(state.state_json.get("questions") or [])
@@ -515,6 +523,8 @@ async def ask_question(
         "question": question,
         "choices": choices or [],
     }
+    ctx.deps.asked_question = True
+    ctx.deps.question_payload = payload
     questions.append(payload)
     state = await _merge_case_state(ctx.deps.session, ctx.deps.session_id, {"questions": questions})
     await ctx.deps.session.commit()
@@ -530,6 +540,19 @@ async def ask_question(
 def patient_friendly_question(question: str) -> str:
     value = " ".join(question.strip().split())
     lower = value.lower()
+    if (
+        "part d" in lower
+        and ("out-of-pocket" in lower or "oop" in lower)
+        and ("processed" in lower or "adjudicated" in lower or "pharmacy" in lower)
+    ):
+        return (
+            "Has the pharmacy already run this Enbrel claim through your Medicare Part D plan?\n"
+            "- If you know it, include how much has already counted toward your yearly Part D "
+            "out-of-pocket total.\n"
+            "- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. "
+            'Look for "out-of-pocket", "TrOOP", or "amount toward yearly cap". If unsure, '
+            "paste the wording."
+        )
     if "household income" in lower and "household size" in lower:
         return "What is your approximate annual household income and household size?"
     if "household size" in lower and "income" not in lower:

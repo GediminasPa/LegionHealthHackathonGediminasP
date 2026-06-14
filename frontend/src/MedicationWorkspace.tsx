@@ -108,12 +108,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           const question = patientFriendlyQuestion(String(payload.question ?? payload.content ?? ""));
           return {
             ...current,
-            messages: question
-              ? [
-                  ...current.messages,
-                  assistantMessage(`I need one detail: ${question}`, current.messages.length),
-                ]
-              : current.messages,
+            messages: question ? applyFollowUpQuestion(current.messages, question) : current.messages,
             status: "waiting",
             activities: [
               ...current.activities,
@@ -566,16 +561,11 @@ function ResultPacketView({
     packet.drafts.length > 0;
   const pendingFollowUp = latestFollowUpQuestion(messages);
   const shouldShowResult = hasResult && !running && !pendingFollowUp;
-  const rows = buildTranscriptRows(activities, messages);
+  const progressRows = buildProgressRows(activities);
+  const messageRows = visibleTranscriptMessages(messages);
   const lastActivity = activities.at(-1);
   const liveProgressText = agentProgressText(activities, running, status);
-  const lastTranscriptRow = rows.at(-1);
-  const showLiveProgress =
-    running &&
-    !(
-      lastTranscriptRow?.kind === "status" &&
-      normalizeTranscriptText(lastTranscriptRow.text) === normalizeTranscriptText(liveProgressText)
-    );
+  const showLiveProgress = running && !pendingFollowUp;
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -593,18 +583,6 @@ function ResultPacketView({
   return (
     <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto bg-[#1f1e1d] px-5 py-6 sm:px-7">
       <div className="mx-auto grid max-w-[68rem] gap-4">
-        {rows.map((row) =>
-          row.kind === "message" ? (
-            <TranscriptMessageRow key={row.id} message={row.message} />
-          ) : (
-            <TranscriptStatusRow
-              completed={row.completed}
-              key={row.id}
-              pulse={false}
-              text={row.text}
-            />
-          ),
-        )}
         {showLiveProgress ? (
           <TranscriptStatusRow
             completed={false}
@@ -612,7 +590,13 @@ function ResultPacketView({
             text={liveProgressText}
           />
         ) : null}
-        {!running && rows.length === 0 && !shouldShowResult ? (
+        {!running && progressRows.length > 0 ? (
+          <ProgressDisclosure rows={progressRows} />
+        ) : null}
+        {messageRows.map((message) => (
+          <TranscriptMessageRow key={message.id} message={message} />
+        ))}
+        {!running && progressRows.length === 0 && messageRows.length === 0 && !shouldShowResult ? (
           <TranscriptStatusRow
             completed={status === "ready"}
             pulse={false}
@@ -631,47 +615,37 @@ function ResultPacketView({
 }
 
 type TranscriptRow =
-  | {
-      completed: boolean;
-      id: string;
-      kind: "status";
-      sort: number;
-      text: string;
-    }
-  | {
-      id: string;
-      kind: "message";
-      message: ChatMessage;
-      sort: number;
-    };
+  {
+    completed: boolean;
+    id: string;
+    sort: number;
+    text: string;
+  };
 
-function buildTranscriptRows(
-  activities: ActivityEvent[],
-  messages: ChatMessage[],
-): TranscriptRow[] {
+function buildProgressRows(activities: ActivityEvent[]): TranscriptRow[] {
   const rows: TranscriptRow[] = [
     ...activities.map((activity, index) => ({
       completed: activity.status === "completed",
       id: `activity-${activity.id}`,
-      kind: "status" as const,
       sort: dateSort(activity.createdAt, index),
       text: friendlyActivityText(activity),
-    })),
-    ...messages.filter(isPatientVisibleMessage).map((message, index) => ({
-      id: `message-${message.id}`,
-      kind: "message" as const,
-      message,
-      sort: dateSort(message.createdAt, activities.length + index),
     })),
   ].sort((left, right) => left.sort - right.sort);
 
   const seenStatusTexts = new Set<string>();
   return rows.filter((row) => {
-    if (row.kind === "message") return true;
     const key = normalizeTranscriptText(row.text);
     if (seenStatusTexts.has(key)) return false;
     seenStatusTexts.add(key);
     return true;
+  });
+}
+
+function visibleTranscriptMessages(messages: ChatMessage[]): ChatMessage[] {
+  const latestQuestionIndex = latestPendingFollowUpMessageIndex(messages);
+  return messages.filter((message, index) => {
+    if (message.role === "user") return message.content.trim().length > 0;
+    return index === latestQuestionIndex;
   });
 }
 
@@ -705,6 +679,34 @@ function TranscriptStatusRow({
   );
 }
 
+function ProgressDisclosure({ rows }: { rows: TranscriptRow[] }) {
+  const completedCount = rows.filter((row) => row.completed).length;
+  return (
+    <details className="group border border-white/12 bg-[#242220]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[#f7f2ec]">
+        <span className="ui-sans flex min-w-0 items-center gap-3">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#6edc96]" />
+          <span className="truncate">Analyzing case, searching for evidence</span>
+        </span>
+        <span className="ui-sans flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#9c948e]">
+          {completedCount}/{rows.length}
+          <ChevronRight className="transition group-open:rotate-90" size={16} />
+        </span>
+      </summary>
+      <div className="grid gap-3 border-t border-white/10 px-4 py-4">
+        {rows.map((row) => (
+          <TranscriptStatusRow
+            completed={row.completed}
+            key={row.id}
+            pulse={false}
+            text={row.text}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function TranscriptMessageRow({ message }: { message: ChatMessage }) {
   const user = message.role === "user";
   const formatted = formatChatMessage(message);
@@ -721,11 +723,6 @@ function TranscriptMessageRow({ message }: { message: ChatMessage }) {
   );
 }
 
-function isPatientVisibleMessage(message: ChatMessage): boolean {
-  if (message.role === "user") return message.content.trim().length > 0;
-  return isPatientVisibleAssistantContent(message.content);
-}
-
 function isPatientVisibleAssistantContent(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;
@@ -736,12 +733,19 @@ function formatChatMessage(message: ChatMessage): string {
   if (message.role === "user") return message.content;
   const content = message.content.trim();
   const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
-  if (followUp !== content) return `I need one detail: ${shortFollowUpQuestion(followUp)}`;
+  if (followUp !== content) return `One quick question: ${shortFollowUpQuestion(followUp)}`;
   return patientFriendlyQuestion(content);
 }
 
 function shortFollowUpQuestion(question: string): string {
   const lower = question.toLowerCase();
+  if (
+    lower.includes("part d") &&
+    (lower.includes("out-of-pocket") || lower.includes("oop")) &&
+    (lower.includes("processed") || lower.includes("adjudicated") || lower.includes("pharmacy"))
+  ) {
+    return partDProgressQuestion();
+  }
   if (lower.includes("household income") && lower.includes("household size")) {
     return "What is your approximate annual household income and household size?";
   }
@@ -785,7 +789,7 @@ function markdownishBlocks(content: string): MarkdownishBlock[] {
   const normalized = content
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/\s+-\s+/g, "\n- ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[^\S\n]{2,}/g, " ")
     .trim();
   const lines = normalized.split(/\n+/).map((line) => line.trim()).filter(Boolean);
   const blocks: MarkdownishBlock[] = [];
@@ -817,6 +821,13 @@ function formatInlineMarkdown(text: string): string {
 function patientFriendlyQuestion(question: string): string {
   const value = question.trim().replace(/\s+/g, " ");
   const lower = value.toLowerCase();
+  if (
+    lower.includes("part d") &&
+    (lower.includes("out-of-pocket") || lower.includes("oop")) &&
+    (lower.includes("processed") || lower.includes("adjudicated") || lower.includes("pharmacy"))
+  ) {
+    return partDProgressQuestion();
+  }
   if (lower.includes("household income") && lower.includes("household size")) {
     return "What is your approximate annual household income and household size?";
   }
@@ -843,6 +854,14 @@ function patientFriendlyQuestion(question: string): string {
     .replace(/\bQL\b/g, "quantity limit")
     .replace(/manufacturer copay assistance/gi, "manufacturer copay card")
     .replace(/eligibility/gi, "whether you qualify");
+}
+
+function partDProgressQuestion(): string {
+  return [
+    "Has the pharmacy already run this Enbrel claim through your Medicare Part D plan?",
+    "- If you know it, include how much has already counted toward your yearly Part D out-of-pocket total.",
+    '- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. Look for "out-of-pocket", "TrOOP", or "amount toward yearly cap". If unsure, paste the wording.',
+  ].join("\n");
 }
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
@@ -1280,6 +1299,12 @@ function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
 }
 
 function latestFollowUpQuestion(messages: ChatMessage[]): string | null {
+  const latestQuestionIndex = latestPendingFollowUpMessageIndex(messages);
+  if (latestQuestionIndex === -1) return null;
+  return messages[latestQuestionIndex].content.replace(/^I need one detail:\s*/i, "").trim();
+}
+
+function latestPendingFollowUpMessageIndex(messages: ChatMessage[]): number {
   let latestQuestionText = "";
   let latestQuestionIndex = -1;
   let latestUserIndex = -1;
@@ -1295,8 +1320,8 @@ function latestFollowUpQuestion(messages: ChatMessage[]): string | null {
     }
   });
 
-  if (!latestQuestionText || latestUserIndex > latestQuestionIndex) return null;
-  return latestQuestionText;
+  if (!latestQuestionText || latestUserIndex > latestQuestionIndex) return -1;
+  return latestQuestionIndex;
 }
 
 function extractActionItems(content: string): string[] {
@@ -1578,6 +1603,20 @@ function applyFinalAssistantMessage(messages: ChatMessage[], content: string): C
   const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
   if (!content.trim()) return filtered;
   return [...filtered, assistantMessage(content, filtered.length)];
+}
+
+function applyFollowUpQuestion(messages: ChatMessage[], question: string): ChatMessage[] {
+  const withoutPendingQuestions = messages.filter((message, index) => {
+    if (!message.content.trim().toLowerCase().startsWith("i need one detail:")) return true;
+    const laterUserIndex = messages.findIndex(
+      (candidate, candidateIndex) => candidateIndex > index && candidate.role === "user",
+    );
+    return laterUserIndex !== -1;
+  });
+  return [
+    ...withoutPendingQuestions,
+    assistantMessage(`I need one detail: ${question}`, withoutPendingQuestions.length),
+  ];
 }
 
 function hasPendingFollowUp(messages: ChatMessage[]): boolean {
