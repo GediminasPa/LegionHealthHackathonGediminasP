@@ -421,7 +421,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
     assert response.status_code == 200
     assert "event: tool_call" in response.text
     assert "run_case_preflight" in response.text
-    assert "event: question" in response.text
+    assert "event: question" not in response.text
     assert "event: agent_delta" in response.text
     assert "event: run_done" in response.text
     assert "foundation grants" in seen_model_prompts[0]
@@ -430,7 +430,7 @@ async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
     payload = detail.json()
     assert payload["runs"][0]["status"] == "completed"
     assert payload["sources"][0]["confidence"] == 0.7
-    assert payload["case_state"]["state_json"]["questions"][0]["id"] == "income-screen"
+    assert payload["case_state"]["state_json"]["questions"] == []
     assert payload["case_state"]["state_json"]["options"][0]["id"] == "foundation-grants"
     assert payload["artifacts"][0]["metadata_json"]["source_ids"] == [1]
     assert payload["messages"][-1]["role"] == "assistant"

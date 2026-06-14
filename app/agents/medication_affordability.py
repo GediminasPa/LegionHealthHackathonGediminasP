@@ -179,8 +179,8 @@ def build_medication_agent_prompt(
             "Never say follow-up questions sent, awaiting responses, before ranking options, "
             "updating cost tracker, case remains, session context, preflight loaded, "
             "key facts extracted, or missing eligibility facts.",
-            "If you call ask_question, repeat that exact question as the final line of your "
-            "final answer. Nothing should come after the question.",
+            "Do not call ask_question for patient-facing questions. Write any question in "
+            "the final assistant answer as the final line. Nothing should come after it.",
             "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "
             "smoothing as cash-flow help only, and exception/alternative routing as backup.",
             "For commercial high quotes, rank insurance processing, manufacturer support, cash "
@@ -553,7 +553,7 @@ async def ask_question(
     question_id: str | None = None,
     choices: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Record a follow-up question; include this exact question as the final answer line."""
+    """Internal note only. Do not use for patient-facing questions."""
     question = " ".join(question.strip().split())
     intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
     combined_user_text = await _combined_user_provided_text(
@@ -572,6 +572,8 @@ async def ask_question(
             "choices": choices or [],
             "skipped": True,
             "reason": "already_provided",
+            "patient_visible": False,
+            "final_answer_instruction": "Do not say this question was asked.",
         }
         ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
         return payload
@@ -581,24 +583,18 @@ async def ask_question(
             "choices": choices or [],
             "skipped": True,
         }
-    ctx.deps.emit("tool_call", {"name": "ask_question", "args": {"question": question}})
-    state = await _get_case_state(ctx.deps.session, ctx.deps.session_id)
-    questions = list(state.state_json.get("questions") or [])
     payload = {
-        "id": question_id or f"question-{len(questions) + 1}",
+        "id": question_id or "question-note",
         "question": question,
         "choices": choices or [],
+        "patient_visible": False,
+        "final_answer_instruction": (
+            "This was not shown to the patient. If still needed, write it as the final "
+            "Question line in your assistant answer. Do not say it was already asked."
+        ),
     }
     ctx.deps.asked_question = True
     ctx.deps.question_payload = payload
-    questions.append(payload)
-    state = await _merge_case_state(ctx.deps.session, ctx.deps.session_id, {"questions": questions})
-    await ctx.deps.session.commit()
-    ctx.deps.emit("question", payload)
-    ctx.deps.emit(
-        "case_state_patch",
-        {"patch": {"questions": questions}, "state": state.state_json},
-    )
     ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
     return payload
 

@@ -1577,7 +1577,7 @@ function toolActivityFromPayload(
 function summarizeToolPayload(payload: Record<string, unknown>): string {
   const name = String(payload.name ?? "");
   if (name === "update_cost_tracker") return "Refreshing expected cost, savings type, and confidence.";
-  if (name === "ask_question") return "The agent needs one answer before it can narrow the recommendation.";
+  if (name === "ask_question") return "Checking whether the final answer needs one question.";
   if (name === "save_option") return "Adding a ranked affordability route to the review.";
   if (name === "save_source") return "Saving an evidence source for the recommendation.";
   if (name === "save_artifact") return "Preparing a reusable draft for the next step.";
@@ -1589,8 +1589,8 @@ function summarizeToolPayload(payload: Record<string, unknown>): string {
 function toolLabel(name: string): { running: string; done: string } {
   const labels: Record<string, { running: string; done: string }> = {
     ask_question: {
-      running: "Preparing follow-up question",
-      done: "Follow-up question ready",
+      running: "Preparing final answer",
+      done: "Final answer prepared",
     },
     get_session_context: {
       running: "Reading case context",
