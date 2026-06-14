@@ -200,10 +200,18 @@ async def test_run_stream_emits_typed_events_and_persists_state(
     assert response.headers["content-type"].startswith("text/event-stream")
     body = response.text
     assert "event: activity_started" in body
+    assert body.count("event: activity_started") >= 4
+    assert body.count("event: activity_completed") >= 4
+    assert "Reading intake and plan text" in body
+    assert "Checking evidence sources" in body
+    assert "Ranking coverage and cost routes" in body
+    assert "Preparing next-step artifact" in body
     assert "event: source_added" in body
     assert "event: cost_tracker_update" in body
     assert "event: artifact_created" in body
     assert "event: run_done" in body
+    assert "Demo best" not in body
+    assert "Demo mode" not in body
 
     detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
     payload = detail.json()
@@ -443,7 +451,7 @@ async def test_ozempic_prefill_mock_run_includes_estimate_bands_and_sources(
         49900,
     }
     tracker = payload["case_state"]["state_json"]["cost_tracker"]
-    assert tracker["current_best_label"] == "Demo best estimate: commercial savings route"
+    assert tracker["current_best_label"] == "Best public estimate: commercial savings route"
     assert tracker["current_best_estimated_price_cents"] == 2500
     assert tracker["confidence"] == "found_source"
     assert payload["artifacts"][0]["title"] == "Ozempic pre-fill coverage and price checklist"

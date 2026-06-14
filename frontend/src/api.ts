@@ -292,9 +292,57 @@ async function* streamLocalMedicationRun(
         content: `I am checking ${intake.medicationName || "this medication"} across coverage, cash, assistance, and appeal routes.`,
       },
     },
+    {
+      type: "activity_completed",
+      payload: {
+        id: "local-intake",
+        title: "Intake context loaded",
+        summary: "Medication, insurance, quote, and pasted plan text are ready for routing.",
+      },
+    },
+    {
+      type: "activity_started",
+      payload: {
+        id: "local-sources",
+        title: "Checking evidence sources",
+        summary: "CopayGuard is matching the case to curated healthcare sources.",
+      },
+    },
     ...sourcePayloads.map((payload) => ({ type: "source_added", payload })),
+    {
+      type: "activity_completed",
+      payload: {
+        id: "local-sources",
+        title: "Evidence sources checked",
+        summary: `${sourcePayloads.length} curated sources are attached to this review.`,
+      },
+    },
+    {
+      type: "activity_started",
+      payload: {
+        id: "local-routing",
+        title: "Ranking coverage and cost routes",
+        summary: "CopayGuard is separating true savings from payment smoothing and eligibility-dependent help.",
+      },
+    },
     { type: "option_added", payload: option },
     { type: "cost_tracker_update", payload: costTracker },
+    {
+      type: "activity_completed",
+      payload: {
+        id: "local-routing",
+        title: "Route and price estimate ready",
+        summary: "The top route and cost tracker are now reflected in the result packet.",
+      },
+    },
+    {
+      type: "activity_started",
+      payload: {
+        id: "local-artifact",
+        title: "Preparing next-step artifact",
+        summary: "CopayGuard is drafting the call script or checklist for the recommended path.",
+      },
+    },
     {
       type: "artifact_created",
       payload: artifact,
@@ -302,9 +350,9 @@ async function* streamLocalMedicationRun(
     {
       type: "activity_completed",
       payload: {
-        id: "local-summary",
+        id: "local-artifact",
         title: "Prepared next-step summary",
-        summary: "A demo affordability route is ready for review.",
+        summary: "An affordability route is ready for review.",
       },
     },
     { type: "run_done", payload: { status: "completed" } },
@@ -379,7 +427,7 @@ function localSourcePayloads(intake: MedicationIntakeData): Array<Record<string,
 
   return baseSources.map((source) => ({
     ...source,
-    source_type: "local_demo_resource",
+    source_type: "local_curated_resource",
     checked_at: new Date().toISOString(),
     confidence: 0.78,
   }));
@@ -446,13 +494,13 @@ function localCostTrackerPayload(
   const estimated = hasQuote ? Math.max(2500, Math.round(intake.quotedPriceCents * 0.35)) : null;
   return {
     quoted_price_cents: intake.quotedPriceCents,
-    current_best_label: hasQuote ? "Demo best route estimate" : "Estimate before first fill",
+    current_best_label: hasQuote ? "Best route estimate" : "Estimate before first fill",
     current_best_estimated_price_cents: estimated,
     potential_drop_cents: estimated == null ? null : Math.max(0, intake.quotedPriceCents - estimated),
     drop_type: hasQuote ? "price_reduction" : "unknown",
     confidence: hasQuote ? "eligibility_unknown" : "needs_user_confirmation",
     explanation:
-      "Demo mode is ranking likely affordability routes from public and curated healthcare sources. Confirm coverage, eligibility, pharmacy, and deductible or out-of-pocket impact before treating any estimate as a claim result.",
+      "This review is ranking likely affordability routes from public and curated healthcare sources. Confirm coverage, eligibility, pharmacy, and deductible or out-of-pocket impact before treating any estimate as a claim result.",
     source_ids: sourceIds,
   };
 }

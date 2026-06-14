@@ -707,10 +707,10 @@ function DemoCasePicker({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-semibold tracking-[-0.045em] text-[#f7f2ec] sm:text-4xl">
-            Try a demo case
+            Try a sample case
           </h2>
           <p className="ui-sans mt-3 max-w-[42rem] text-sm leading-6 text-[#c7c0b8]">
-            Pick a demo path or generate a synthetic case. Edit any field before starting the review.
+            Pick a sample path or generate a synthetic case. Edit any field before starting the review.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -723,7 +723,7 @@ function DemoCasePicker({
             Random case
           </button>
           <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-            3 demos
+            3 samples
           </span>
         </div>
       </div>
