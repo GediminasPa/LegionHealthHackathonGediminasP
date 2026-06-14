@@ -39,6 +39,7 @@ type Props = {
 };
 
 const STREAMING_ASSISTANT_ID = "assistant-streaming";
+const RESULT_ASSISTANT_ID_PREFIX = "assistant-result";
 const GUIDED_RUN_STEP_DELAY_MS = 560;
 const autoStartedSessionIds = globalStringSet("__copayGuardAutoStartedSessionIds");
 const requestedRunKeys = globalStringSet("__copayGuardRequestedRunKeys");
@@ -243,27 +244,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
       await consumeRun(mode);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The investigation run failed.";
-      if (shouldUseGuidedReviewFallback(mode, message)) {
-        applyEvent({
-          type: "activity_started",
-          payload: {
-            id: `guided-review-${snapshot.sessionId}`,
-            title: "Starting guided review",
-            summary:
-              "The live model is not configured, so CopayGuard will walk through the same review steps with curated sources.",
-          },
-        });
-        await pauseGuidedReviewStep("activity_started");
-        try {
-          await consumeRun("mock");
-        } catch (fallbackError) {
-          const fallbackMessage =
-            fallbackError instanceof Error ? fallbackError.message : "The guided review failed.";
-          applyEvent({ type: "run_error", payload: { message: fallbackMessage } });
-        }
-      } else {
-        applyEvent({ type: "run_error", payload: { message } });
-      }
+      applyEvent({ type: "run_error", payload: { message } });
     } finally {
       runningSessionIds.delete(runKey);
       setRunning(false);
@@ -291,7 +272,11 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
     };
     setSnapshot((current) =>
       current
-        ? { ...current, messages: [...current.messages, message], status: "investigating" }
+        ? {
+            ...current,
+            messages: [...appendResultMessageIfNeeded(current), message],
+            status: "investigating",
+          }
         : current,
     );
     await postMedicationMessage(snapshot.sessionId, content);
@@ -645,7 +630,7 @@ function visibleTranscriptMessages(messages: ChatMessage[]): ChatMessage[] {
   const latestQuestionIndex = latestPendingFollowUpMessageIndex(messages);
   return messages.filter((message, index) => {
     if (message.role === "user") return message.content.trim().length > 0;
-    return index === latestQuestionIndex;
+    return index === latestQuestionIndex || isCapturedResultMessage(message);
   });
 }
 
@@ -727,6 +712,10 @@ function isPatientVisibleAssistantContent(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;
   return trimmed.toLowerCase().startsWith("i need one detail:");
+}
+
+function isCapturedResultMessage(message: ChatMessage): boolean {
+  return message.role === "assistant" && message.id.startsWith(RESULT_ASSISTANT_ID_PREFIX);
 }
 
 function formatChatMessage(message: ChatMessage): string {
@@ -1599,17 +1588,6 @@ function statusBadgeClass(status: MedicationSnapshot["status"]): string {
   return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
 }
 
-function shouldUseGuidedReviewFallback(mode: "agent" | "mock", message: string): boolean {
-  if (mode !== "agent") return false;
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("use mode=mock") ||
-    normalized.includes("api_key") ||
-    normalized.includes("api key") ||
-    normalized.includes("grok_api_key")
-  );
-}
-
 async function pauseGuidedReviewStep(eventType: string): Promise<void> {
   if (eventType === "run_done" || eventType === "run_error") return;
   const delay = eventType === "source_added" ? 380 : GUIDED_RUN_STEP_DELAY_MS;
@@ -1657,6 +1635,81 @@ function applyFinalAssistantMessage(messages: ChatMessage[], content: string): C
   const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
   if (!content.trim()) return filtered;
   return [...filtered, assistantMessage(content, filtered.length)];
+}
+
+function appendResultMessageIfNeeded(snapshot: MedicationSnapshot): ChatMessage[] {
+  if (snapshot.status !== "ready") return snapshot.messages;
+  const packet = buildResultPacket(snapshot);
+  if (!packetHasResult(packet)) return snapshot.messages;
+
+  const content = resultMessageContent(packet);
+  const alreadyCaptured = snapshot.messages.some(
+    (message) =>
+      isCapturedResultMessage(message) &&
+      normalizeTranscriptText(message.content) === normalizeTranscriptText(content),
+  );
+  if (alreadyCaptured) return snapshot.messages;
+
+  return [
+    ...snapshot.messages,
+    {
+      id: `${RESULT_ASSISTANT_ID_PREFIX}-${Date.now()}-${snapshot.messages.length}`,
+      role: "assistant",
+      content,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+function packetHasResult(packet: CaseResultPacket): boolean {
+  return (
+    packet.status === "ready" ||
+    packet.best_route != null ||
+    packet.resources.length > 0 ||
+    packet.drafts.length > 0
+  );
+}
+
+function resultMessageContent(packet: CaseResultPacket): string {
+  const potentialSavings =
+    packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
+      ? null
+      : packet.costs.potential_savings.formatted;
+  const hasLowerVerifiedPrice =
+    packet.costs.best_price.cents != null &&
+    packet.costs.best_price.cents < packet.costs.quoted_price.cents;
+  const priceRead = [
+    `The pharmacy quote is ${packet.costs.quoted_price.formatted}.`,
+    hasLowerVerifiedPrice
+      ? `The best verified estimate right now is ${packet.costs.best_price.formatted}.`
+      : "I do not yet have a verified lower patient-specific price than that quote.",
+    potentialSavings ? `That is a potential savings of ${potentialSavings}.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const routeText = packet.best_route
+    ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
+    : fallbackRouteText(packet);
+  const evidenceLinks = evidenceLinksForPacket(packet).slice(0, 6);
+  const nextSteps = nextStepsForPacket(packet);
+
+  return [
+    `Reviewing ${packet.case.medication || "this medication"} for ${packet.case.insurance}.`,
+    "",
+    patientFacingSummary(packet),
+    "",
+    priceRead,
+    "",
+    routeText,
+    "",
+    `Next: ${primaryNextStep(packet)}`,
+    "",
+    "Evidence CopayGuard uses:",
+    ...evidenceLinks.map((source) => `- ${source.title}: ${source.summary}`),
+    "",
+    "What CopayGuard will check:",
+    ...nextSteps.map((step) => `- ${step}`),
+  ].join("\n");
 }
 
 function applyFollowUpQuestion(messages: ChatMessage[], question: string): ChatMessage[] {
