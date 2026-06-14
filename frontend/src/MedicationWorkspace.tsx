@@ -39,6 +39,7 @@ type Props = {
 };
 
 const STREAMING_ASSISTANT_ID = "assistant-streaming";
+const GUIDED_RUN_STEP_DELAY_MS = 560;
 const autoStartedSessionIds = globalStringSet("__copayGuardAutoStartedSessionIds");
 const requestedRunKeys = globalStringSet("__copayGuardRequestedRunKeys");
 const runningSessionIds = globalStringSet("__copayGuardRunningSessionIds");
@@ -234,13 +235,37 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
     runningSessionIds.add(runKey);
     setRunning(true);
     setSnapshot((current) => (current ? { ...current, status: "investigating" } : current));
-    try {
-      for await (const event of streamMedicationRun(snapshot.sessionId, mode)) {
+    const consumeRun = async (runMode: "agent" | "mock") => {
+      for await (const event of streamMedicationRun(snapshot.sessionId, runMode)) {
         applyEvent(event);
+        if (runMode === "mock") await pauseGuidedReviewStep(event.type);
       }
+    };
+    try {
+      await consumeRun(mode);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The investigation run failed.";
-      applyEvent({ type: "run_error", payload: { message } });
+      if (shouldUseGuidedReviewFallback(mode, message)) {
+        applyEvent({
+          type: "activity_started",
+          payload: {
+            id: `guided-review-${snapshot.sessionId}`,
+            title: "Starting guided review",
+            summary:
+              "The live model is not configured, so CopayGuard will walk through the same review steps with curated sources.",
+          },
+        });
+        await pauseGuidedReviewStep("activity_started");
+        try {
+          await consumeRun("mock");
+        } catch (fallbackError) {
+          const fallbackMessage =
+            fallbackError instanceof Error ? fallbackError.message : "The guided review failed.";
+          applyEvent({ type: "run_error", payload: { message: fallbackMessage } });
+        }
+      } else {
+        applyEvent({ type: "run_error", payload: { message } });
+      }
     } finally {
       runningSessionIds.delete(runKey);
       setRunning(false);
@@ -370,7 +395,7 @@ function RunError({
     <div className="ui-sans flex flex-wrap items-center justify-between gap-3 border border-[#ff8a7c]/40 bg-[#2b1410] px-4 py-3 text-sm text-[#ffd9d3]">
       <span className="inline-flex items-center gap-2">
         <XCircle size={17} />
-        The live agent run failed. You can run the local demo stream.
+        The live agent run failed. You can run the guided review stream.
       </span>
       <button
         className="button-press bg-[#ef6844] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white hover:bg-[#ff7a52] disabled:cursor-not-allowed disabled:bg-[#3a302c] disabled:text-[#777777]"
@@ -378,7 +403,7 @@ function RunError({
         type="button"
         onClick={startRun}
       >
-        Run mock demo
+        Run guided review
       </button>
     </div>
   );
@@ -427,6 +452,7 @@ function AgentWorkPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        <ActivityTimeline activities={snapshot.activities} running={running} />
         <ResultPacketView messages={snapshot.messages} packet={resultPacket} running={running} />
         <FollowUpComposer
           draft={draft}
@@ -435,6 +461,61 @@ function AgentWorkPanel({
           submitFollowUp={submitFollowUp}
         />
       </div>
+    </section>
+  );
+}
+
+function ActivityTimeline({
+  activities,
+  running,
+}: {
+  activities: ActivityEvent[];
+  running: boolean;
+}) {
+  const visibleActivities = activities.slice(-4);
+  return (
+    <section className="border border-white/12 bg-[#1f1e1d] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-[#f7f2ec]">Review steps</h3>
+        <span className="ui-sans inline-flex items-center gap-2 border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+          {running ? <Loader2 className="animate-spin text-[#ef6844]" size={13} /> : null}
+          {running ? "Running" : activities.length ? "Ready" : "Queued"}
+        </span>
+      </div>
+      {visibleActivities.length ? (
+        <ol className="mt-3 grid gap-2 lg:grid-cols-4">
+          {visibleActivities.map((activity) => (
+            <li
+              className="min-w-0 border border-white/12 bg-[#2b2928] p-3"
+              key={activity.id}
+            >
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 text-[#ef6844]">
+                  {activity.status === "completed" ? (
+                    <CheckCircle2 size={15} />
+                  ) : (
+                    <CircleDot size={15} />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="break-words text-xs font-semibold leading-5 text-[#f7f2ec]">
+                    {activity.title}
+                  </p>
+                  <p className="ui-sans mt-1 line-clamp-2 text-[0.68rem] leading-5 text-[#c7c0b8]">
+                    {activity.summary}
+                  </p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="ui-sans mt-3 border border-dashed border-white/12 bg-[#252321] p-3 text-sm leading-6 text-[#c7c0b8]">
+          {running
+            ? "Starting the structured review."
+            : "The structured review steps will appear here as the run starts."}
+        </p>
+      )}
     </section>
   );
 }
@@ -486,14 +567,17 @@ function ResultPacketView({
   packet: CaseResultPacket;
   running: boolean;
 }) {
-  const visibleMessages = messages.filter(
-    (message) => message.role !== "assistant" || message.content.trim(),
-  );
+  const visibleMessages = messages.filter(isPatientVisibleMessage);
+  const hasResult =
+    packet.status === "ready" ||
+    packet.best_route != null ||
+    packet.resources.length > 0 ||
+    packet.drafts.length > 0;
 
   return (
     <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto bg-[#1f1e1d] px-5 py-6 sm:px-7">
       <div className="mx-auto max-w-[68rem]">
-        {packet.status === "ready" && packet.best_route ? (
+        {hasResult ? (
           <AgentAnswerText packet={packet} />
         ) : visibleMessages.length ? (
           <AgentMessageStream messages={visibleMessages} />
@@ -503,6 +587,31 @@ function ResultPacketView({
       </div>
     </article>
   );
+}
+
+function isPatientVisibleMessage(message: ChatMessage): boolean {
+  if (message.role === "user") return message.content.trim().length > 0;
+  const content = message.content.trim();
+  const lower = content.toLowerCase();
+  if (!content) return false;
+  if (
+    (lower.startsWith("i'll now") || lower.startsWith("i will now")) &&
+    (lower.includes("persist") ||
+      lower.includes("preflight") ||
+      lower.includes("tool") ||
+      lower.includes("state"))
+  ) {
+    return false;
+  }
+  if (
+    lower.includes("get_session_context") ||
+    lower.includes("run_case_preflight") ||
+    lower.includes("persist the investigation") ||
+    lower.includes("required by the preflight")
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function AgentMessageStream({ messages }: { messages: ChatMessage[] }) {
@@ -579,14 +688,28 @@ function AgentWorkingText({
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
   const resourceList = packet.resources.slice(0, 5);
-  const bestPriceLabel =
-    packet.costs.best_price.cents == null || !packet.costs.best_price.label
-      ? ""
-      : ` (${packet.costs.best_price.label})`;
   const potentialSavings =
     packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
-      ? "needs an actual fill price"
+      ? null
       : packet.costs.potential_savings.formatted;
+  const priceRead = [
+    `The pharmacy quote is ${packet.costs.quoted_price.formatted}.`,
+    packet.costs.best_price.cents == null
+      ? "I do not have a verified lower route yet."
+      : `The best verified estimate right now is ${packet.costs.best_price.formatted}.`,
+    potentialSavings ? `That is a potential savings of ${potentialSavings}.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const nextStep = packet.next_steps[0] ?? "Confirm the missing pharmacy or plan details.";
+  const sourceText = resourceList.length
+    ? `I checked ${resourceList
+        .map((source) => source.publisher || source.title)
+        .join(", ")}.`
+    : "I do not have saved evidence sources for this run yet.";
+  const routeText = packet.best_route
+    ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
+    : fallbackRouteText(packet);
 
   return (
     <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
@@ -594,74 +717,31 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
         Reviewing {packet.case.medication || "this medication"} for {packet.case.insurance}.
       </p>
 
-      <section className="space-y-1">
-        <h3 className="font-semibold text-[#f7f2ec]">1. Summary</h3>
-        <p>{packet.what_we_found}</p>
-      </section>
-
-      <section className="space-y-1">
-        <h3 className="font-semibold text-[#f7f2ec]">2. Price read</h3>
-        <p>Quoted price: {packet.costs.quoted_price.formatted}</p>
-        <p>
-          Best current estimate: {packet.costs.best_price.formatted}
-          {bestPriceLabel}
-        </p>
-        <p>Potential savings: {potentialSavings}</p>
-        <p>Confidence: {labelize(packet.costs.confidence)}</p>
-      </section>
-
-      <section className="space-y-1">
-        <h3 className="font-semibold text-[#f7f2ec]">3. Best route</h3>
-        {packet.best_route ? (
-          <>
-            <p>{packet.best_route.title}</p>
-            <p>{packet.best_route.summary}</p>
-          </>
-        ) : (
-          <p>
-            No route is ranked yet. I need the pharmacy estimate, preferred pharmacy, and plan rule
-            details before making a recommendation.
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-1">
-        <h3 className="font-semibold text-[#f7f2ec]">4. Resources</h3>
-        {resourceList.length ? (
-          <ol className="list-decimal space-y-1 pl-5">
-            {resourceList.map((source) => (
-              <li key={`${source.title}-${source.url}`}>
-                {source.url ? (
-                  <a
-                    className="text-[#ffd0be] underline decoration-[#ef6844]/50 underline-offset-4 hover:text-white"
-                    href={source.url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {source.publisher || source.title}
-                  </a>
-                ) : (
-                  source.publisher || source.title
-                )}
-                {source.summary ? ` - ${source.summary}` : ""}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p>No evidence sources have been saved yet.</p>
-        )}
-      </section>
-
-      <section className="space-y-1">
-        <h3 className="font-semibold text-[#f7f2ec]">5. Next steps</h3>
-        <ol className="list-decimal space-y-1 pl-5">
-          {packet.next_steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
+      <p>{packet.what_we_found}</p>
+      <p>{priceRead}</p>
+      <p>{routeText}</p>
+      <p>{sourceText}</p>
+      <p>Next: {nextStep}</p>
     </div>
   );
+}
+
+function fallbackRouteText(packet: CaseResultPacket): string {
+  if (packet.costs.quoted_price.cents > 0) {
+    return [
+      "This looks like a sticker-shock case.",
+      "The practical first route is to verify whether the pharmacy ran the claim through the plan,",
+      "whether the price is mostly deductible, and whether manufacturer support, a cash price,",
+      "or a covered alternative would be better.",
+    ].join(" ");
+  }
+
+  return [
+    "This is a pre-fill check.",
+    "The practical first route is to look for likely blockers before pickup: prior authorization,",
+    "step therapy, quantity limits, formulary tier, specialty pharmacy rules, and lower-cost",
+    "covered alternatives.",
+  ].join(" ");
 }
 
 function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {
@@ -1012,6 +1092,23 @@ function statusBadgeClass(status: MedicationSnapshot["status"]): string {
   if (status === "waiting") return "border-[#ffc36a]/55 bg-[#1f1e1d] text-[#ffc36a]";
   if (status === "investigating") return "border-[#ef6844]/60 bg-[#1f1e1d] text-[#ef6844]";
   return "border-white/12 bg-[#1f1e1d] text-[#c7c0b8]";
+}
+
+function shouldUseGuidedReviewFallback(mode: "agent" | "mock", message: string): boolean {
+  if (mode !== "agent") return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("use mode=mock") ||
+    normalized.includes("api_key") ||
+    normalized.includes("api key") ||
+    normalized.includes("grok_api_key")
+  );
+}
+
+async function pauseGuidedReviewStep(eventType: string): Promise<void> {
+  if (eventType === "run_done" || eventType === "run_error") return;
+  const delay = eventType === "source_added" ? 380 : GUIDED_RUN_STEP_DELAY_MS;
+  await new Promise((resolve) => window.setTimeout(resolve, delay));
 }
 
 function StatusIcon({

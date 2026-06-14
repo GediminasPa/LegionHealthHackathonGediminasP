@@ -277,6 +277,55 @@ def _event(
     )
 
 
+def _activity_payload(activity: MedicationAffordabilityActivity) -> dict[str, Any]:
+    return {
+        "id": activity.id,
+        "title": activity.title,
+        "summary": activity.summary,
+        "created_at": activity.created_at.isoformat() if activity.created_at else None,
+    }
+
+
+async def _record_activity(
+    db: AsyncSession,
+    session_id: int,
+    run_id: int,
+    *,
+    title: str,
+    summary: str,
+    step: str,
+) -> MedicationAffordabilityActivity:
+    activity = MedicationAffordabilityActivity(
+        session_id=session_id,
+        run_id=run_id,
+        event_type="activity_started",
+        title=title,
+        summary=summary,
+        payload_json={"step": step},
+    )
+    db.add(activity)
+    await db.commit()
+    await db.refresh(activity)
+    return activity
+
+
+async def _complete_activity(
+    db: AsyncSession,
+    activity: MedicationAffordabilityActivity,
+    *,
+    title: str | None = None,
+    summary: str | None = None,
+) -> MedicationAffordabilityActivity:
+    activity.event_type = "activity_completed"
+    if title is not None:
+        activity.title = title
+    if summary is not None:
+        activity.summary = summary
+    await db.commit()
+    await db.refresh(activity)
+    return activity
+
+
 async def _start_run(db: AsyncSession, session_id: int) -> MedicationAffordabilityRun:
     run = MedicationAffordabilityRun(session_id=session_id, status="running")
     db.add(run)
@@ -307,21 +356,19 @@ async def run_mock_investigation(
     intake_data = MedicationAffordabilityIntakeCreate.model_validate(intake, from_attributes=True)
     run = await _start_run(db, session_id)
     try:
-        started = MedicationAffordabilityActivity(
-            session_id=session_id,
-            run_id=run.id,
-            event_type="activity_started",
+        intake_activity = await _record_activity(
+            db,
+            session_id,
+            run.id,
             title="Reading intake and plan text",
-            summary="The agent is extracting insurance context and affordability signals.",
-            payload_json={"step": "intake"},
+            summary="CopayGuard is extracting insurance context and affordability signals.",
+            step="intake",
         )
-        db.add(started)
-        await db.commit()
         yield _event(
             "activity_started",
             session_id,
             run.id,
-            {"id": started.id, "title": started.title, "summary": started.summary},
+            _activity_payload(intake_activity),
         )
 
         intro = (
@@ -339,7 +386,25 @@ async def run_mock_investigation(
         db.add(message)
         await db.commit()
         yield _event("agent_message", session_id, run.id, {"content": intro})
+        intake_activity = await _complete_activity(
+            db,
+            intake_activity,
+            title="Intake context loaded",
+            summary="Medication, insurance, quote, and pasted plan text are ready for routing.",
+        )
+        yield _event("activity_completed", session_id, run.id, _activity_payload(intake_activity))
 
+        source_activity = await _record_activity(
+            db,
+            session_id,
+            run.id,
+            title="Checking evidence sources",
+            summary=(
+                "CopayGuard is matching the case to curated plan, pricing, and assistance sources."
+            ),
+            step="sources",
+        )
+        yield _event("activity_started", session_id, run.id, _activity_payload(source_activity))
         hints = curated_resource_hints(intake_data)
         saved_sources: list[MedicationAffordabilitySource] = []
         for resource in hints[:3]:
@@ -370,7 +435,25 @@ async def run_mock_investigation(
                     "confidence": source.confidence,
                 },
             )
+        source_activity = await _complete_activity(
+            db,
+            source_activity,
+            title="Evidence sources checked",
+            summary=f"{len(saved_sources)} curated sources are attached to this review.",
+        )
+        yield _event("activity_completed", session_id, run.id, _activity_payload(source_activity))
 
+        route_activity = await _record_activity(
+            db,
+            session_id,
+            run.id,
+            title="Ranking coverage and cost routes",
+            summary=(
+                "CopayGuard is classifying the case moment and separating savings from smoothing."
+            ),
+            step="routing",
+        )
+        yield _event("activity_started", session_id, run.id, _activity_payload(route_activity))
         analysis = analyze_case(intake_data)
         case_moment = analysis.case_moment
         is_medicare = "medicare" in intake.insurance_type.lower()
@@ -428,13 +511,13 @@ async def run_mock_investigation(
                 }
                 cost_tracker = {
                     "quoted_price_cents": intake.quoted_price_cents,
-                    "current_best_label": "Demo best estimate: commercial savings route",
+                    "current_best_label": "Best public estimate: commercial savings route",
                     "current_best_estimated_price_cents": 2500,
                     "potential_drop_cents": None,
                     "drop_type": "price_reduction",
                     "confidence": "found_source",
                     "explanation": (
-                        "Demo mode is using the lowest public estimate band: an eligible "
+                        "This review is using the lowest public estimate band: an eligible "
                         "covered-commercial savings route. Verify coverage, PA/ST/QL, preferred "
                         "pharmacy, monthly caps, and whether a self-pay fallback would miss "
                         "deductible or OOP credit before treating it as a real claim result."
@@ -562,7 +645,28 @@ async def run_mock_investigation(
                 "state": state.state_json,
             },
         )
+        route_activity = await _complete_activity(
+            db,
+            route_activity,
+            title="Route and price estimate ready",
+            summary=(
+                "The top route, cost tracker, and guardrails are now reflected "
+                "in the result packet."
+            ),
+        )
+        yield _event("activity_completed", session_id, run.id, _activity_payload(route_activity))
 
+        artifact_activity = await _record_activity(
+            db,
+            session_id,
+            run.id,
+            title="Preparing next-step artifact",
+            summary=(
+                "CopayGuard is drafting the call script or checklist for the recommended path."
+            ),
+            step="artifact",
+        )
+        yield _event("activity_started", session_id, run.id, _activity_payload(artifact_activity))
         artifact_data = draft_next_artifact(intake_data)
         source_ids = [source.id for source in saved_sources]
         artifact = MedicationAffordabilityArtifact(
@@ -574,15 +678,6 @@ async def run_mock_investigation(
             metadata_json={"source_ids": source_ids},
         )
         db.add(artifact)
-        completed = MedicationAffordabilityActivity(
-            session_id=session_id,
-            run_id=run.id,
-            event_type="activity_completed",
-            title="Prepared next-step artifact",
-            summary="A practical call script or checklist is ready for review.",
-            payload_json={"artifact_type": artifact.artifact_type},
-        )
-        db.add(completed)
         await _mark_run_completed(db, run)
         await db.refresh(artifact)
         yield _event(
@@ -600,11 +695,18 @@ async def run_mock_investigation(
                 "updated_at": artifact.updated_at.isoformat() if artifact.updated_at else None,
             },
         )
+        artifact_activity.payload_json = {"artifact_type": artifact.artifact_type}
+        artifact_activity = await _complete_activity(
+            db,
+            artifact_activity,
+            title="Prepared next-step artifact",
+            summary="A practical call script or checklist is ready for review.",
+        )
         yield _event(
             "activity_completed",
             session_id,
             run.id,
-            {"id": completed.id, "title": completed.title, "summary": completed.summary},
+            _activity_payload(artifact_activity),
         )
         yield _event("run_done", session_id, run.id, {"status": "completed"})
     except Exception as exc:
