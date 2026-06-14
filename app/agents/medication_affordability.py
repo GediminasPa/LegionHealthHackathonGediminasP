@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities.web_search import WebSearch
-from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.native_tools import WebSearchTool
 from pydantic_ai.providers.openai import OpenAIProvider
 from sqlalchemy import select
@@ -84,6 +84,9 @@ def build_medication_model() -> OpenAIResponsesModel:
     return OpenAIResponsesModel(
         settings.agent_model.split(":", 1)[-1],
         provider=OpenAIProvider(api_key=settings.grok_api_key, base_url=settings.grok_base_url),
+        settings=OpenAIResponsesModelSettings(
+            openai_reasoning_effort=settings.agent_reasoning_effort
+        ),
     )
 
 
@@ -141,8 +144,9 @@ def build_medication_agent_prompt(
     return "\n".join(
         [
             "Start or continue this medication affordability review.",
-            "Load the session context before answering.",
+            "Use the case details silently.",
             "Use tools as needed, but never describe tool use to the patient.",
+            "Do not describe what you already did. Tell the patient what to do next.",
             "Do not claim a price reduction unless evidence supports it.",
             "Treat user-entered intake fields, pasted plan/pharmacy text, and recent user chat "
             "answers as correct. Do not ask the patient to repeat a value they already gave.",
@@ -161,6 +165,13 @@ def build_medication_agent_prompt(
             "it must be the final line and nothing should come after it.",
             "Never say stand by, while tools run, deterministic, preflight, missing_facts, "
             "persist, source_ids, specialist, or cash comparator.",
+            "Never write sections named Investigation started, Key constraints, Current cost "
+            "tracker, Missing facts, Persisted follow-up question, or Curated resources.",
+            "Never say I have saved, I have added, persisted, preflight, guardrails, "
+            "no price reduction can be claimed, waiting on, would you like me to persist, "
+            "assistance matcher, or cash comparator.",
+            "If you call ask_question, repeat that exact question as the final line of your "
+            "final answer. Nothing should come after the question.",
             "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "
             "smoothing as cash-flow help only, and exception/alternative routing as backup.",
             "For commercial high quotes, rank insurance processing, manufacturer support, cash "
@@ -533,7 +544,7 @@ async def ask_question(
     question_id: str | None = None,
     choices: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Persist and stream a follow-up question when eligibility facts are missing."""
+    """Record a follow-up question; include this exact question as the final answer line."""
     question = " ".join(question.strip().split())
     intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
     combined_user_text = await _combined_user_provided_text(
