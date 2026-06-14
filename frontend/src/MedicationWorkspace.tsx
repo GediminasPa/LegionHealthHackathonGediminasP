@@ -480,51 +480,14 @@ function AgentProgressLine({
 }) {
   const text = agentProgressText(activities, running, status);
   const complete = status === "ready" && !running;
-  const visibleActivities = activities.slice(-4);
   return (
-    <section className="ui-sans border border-white/12 bg-[#1f1e1d] px-4 py-3 text-sm leading-6 text-[#ded8d0]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-              running ? "animate-pulse bg-[#ef6844]" : complete ? "bg-[#6edc96]" : "bg-[#c7c0b8]"
-            }`}
-          />
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[#f7f2ec]">Review steps</h3>
-            <p className={running ? "animate-pulse" : ""}>{text}</p>
-          </div>
-        </div>
-        <span className="inline-flex items-center gap-2 border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          {running ? <Loader2 className="animate-spin text-[#ef6844]" size={13} /> : null}
-          {running ? "Running" : complete ? "Ready" : "Queued"}
-        </span>
-      </div>
-      {visibleActivities.length ? (
-        <ol className="mt-3 grid gap-2 lg:grid-cols-4">
-          {visibleActivities.map((activity) => (
-            <li className="min-w-0 border border-white/12 bg-[#2b2928] p-3" key={activity.id}>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0 text-[#ef6844]">
-                  {activity.status === "completed" ? (
-                    <CheckCircle2 size={15} />
-                  ) : (
-                    <CircleDot size={15} />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p className="break-words text-xs font-semibold leading-5 text-[#f7f2ec]">
-                    {activity.title}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-[0.68rem] leading-5 text-[#c7c0b8]">
-                    {activity.summary}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      ) : null}
+    <section className="ui-sans flex min-h-11 items-center gap-3 bg-[#1f1e1d] px-4 py-3 text-sm leading-6 text-[#ded8d0]">
+      <span
+        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+          running ? "animate-pulse bg-[#ef6844]" : complete ? "bg-[#6edc96]" : "bg-[#c7c0b8]"
+        }`}
+      />
+      <p className={running ? "animate-pulse" : ""}>{text}</p>
     </section>
   );
 }
