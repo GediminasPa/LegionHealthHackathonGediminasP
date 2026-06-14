@@ -452,7 +452,11 @@ function AgentWorkPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <ActivityTimeline activities={snapshot.activities} running={running} />
+        <AgentProgressLine
+          activities={snapshot.activities}
+          running={running}
+          status={status}
+        />
         <ResultPacketView messages={snapshot.messages} packet={resultPacket} running={running} />
         <FollowUpComposer
           draft={draft}
@@ -465,30 +469,41 @@ function AgentWorkPanel({
   );
 }
 
-function ActivityTimeline({
+function AgentProgressLine({
   activities,
   running,
+  status,
 }: {
   activities: ActivityEvent[];
   running: boolean;
+  status: MedicationSnapshot["status"];
 }) {
+  const text = agentProgressText(activities, running, status);
+  const complete = status === "ready" && !running;
   const visibleActivities = activities.slice(-4);
   return (
-    <section className="border border-white/12 bg-[#1f1e1d] p-4">
+    <section className="ui-sans border border-white/12 bg-[#1f1e1d] px-4 py-3 text-sm leading-6 text-[#ded8d0]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-[#f7f2ec]">Review steps</h3>
-        <span className="ui-sans inline-flex items-center gap-2 border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+              running ? "animate-pulse bg-[#ef6844]" : complete ? "bg-[#6edc96]" : "bg-[#c7c0b8]"
+            }`}
+          />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-[#f7f2ec]">Review steps</h3>
+            <p className={running ? "animate-pulse" : ""}>{text}</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-2 border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
           {running ? <Loader2 className="animate-spin text-[#ef6844]" size={13} /> : null}
-          {running ? "Running" : activities.length ? "Ready" : "Queued"}
+          {running ? "Running" : complete ? "Ready" : "Queued"}
         </span>
       </div>
       {visibleActivities.length ? (
         <ol className="mt-3 grid gap-2 lg:grid-cols-4">
           {visibleActivities.map((activity) => (
-            <li
-              className="min-w-0 border border-white/12 bg-[#2b2928] p-3"
-              key={activity.id}
-            >
+            <li className="min-w-0 border border-white/12 bg-[#2b2928] p-3" key={activity.id}>
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0 text-[#ef6844]">
                   {activity.status === "completed" ? (
@@ -501,7 +516,7 @@ function ActivityTimeline({
                   <p className="break-words text-xs font-semibold leading-5 text-[#f7f2ec]">
                     {activity.title}
                   </p>
-                  <p className="ui-sans mt-1 line-clamp-2 text-[0.68rem] leading-5 text-[#c7c0b8]">
+                  <p className="mt-1 line-clamp-2 text-[0.68rem] leading-5 text-[#c7c0b8]">
                     {activity.summary}
                   </p>
                 </div>
@@ -509,15 +524,44 @@ function ActivityTimeline({
             </li>
           ))}
         </ol>
-      ) : (
-        <p className="ui-sans mt-3 border border-dashed border-white/12 bg-[#252321] p-3 text-sm leading-6 text-[#c7c0b8]">
-          {running
-            ? "Starting the structured review."
-            : "The structured review steps will appear here as the run starts."}
-        </p>
-      )}
+      ) : null}
     </section>
   );
+}
+
+function agentProgressText(
+  activities: ActivityEvent[],
+  running: boolean,
+  status: MedicationSnapshot["status"],
+): string {
+  if (running) {
+    const latest = [...activities].reverse().find((activity) => activity.status !== "completed");
+    return latest ? friendlyActivityText(latest) : "Analyzing case and searching for evidence...";
+  }
+  if (status === "ready") return "Review complete. Suggestions are ready to expand below.";
+  if (status === "waiting") return "One more detail is needed before the recommendation is final.";
+  if (status === "error") return "Review paused.";
+  return "Ready to analyze case and search for evidence.";
+}
+
+function friendlyActivityText(activity: ActivityEvent): string {
+  const value = `${activity.title} ${activity.summary}`.toLowerCase();
+  if (value.includes("source") || value.includes("evidence") || value.includes("search")) {
+    return "Searching for evidence and affordability routes...";
+  }
+  if (value.includes("price") || value.includes("cost") || value.includes("quote")) {
+    return "Checking price signals and plan tradeoffs...";
+  }
+  if (value.includes("artifact") || value.includes("draft")) {
+    return "Preparing the next-step script...";
+  }
+  if (value.includes("route") || value.includes("rank")) {
+    return "Ranking the best route and backup options...";
+  }
+  if (value.includes("intake") || value.includes("case")) {
+    return "Reading case details and plan clues...";
+  }
+  return "Analyzing case, searching for evidence...";
 }
 
 type CaseResultPacket = {
@@ -687,7 +731,6 @@ function AgentWorkingText({
 }
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
-  const resourceList = packet.resources.slice(0, 5);
   const potentialSavings =
     packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
       ? null
@@ -701,15 +744,10 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
   ]
     .filter(Boolean)
     .join(" ");
-  const nextStep = packet.next_steps[0] ?? "Confirm the missing pharmacy or plan details.";
-  const sourceText = resourceList.length
-    ? `I checked ${resourceList
-        .map((source) => source.publisher || source.title)
-        .join(", ")}.`
-    : "I do not have saved evidence sources for this run yet.";
   const routeText = packet.best_route
     ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
     : fallbackRouteText(packet);
+  const nextStep = packet.next_steps[0] ?? "Confirm the missing pharmacy or plan details.";
 
   return (
     <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
@@ -720,10 +758,128 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
       <p>{packet.what_we_found}</p>
       <p>{priceRead}</p>
       <p>{routeText}</p>
-      <p>{sourceText}</p>
       <p>Next: {nextStep}</p>
+      <SuggestionsDisclosure packet={packet} routeText={routeText} />
     </div>
   );
+}
+
+function SuggestionsDisclosure({
+  packet,
+  routeText,
+}: {
+  packet: CaseResultPacket;
+  routeText: string;
+}) {
+  const evidenceLinks = packet.resources.length
+    ? packet.resources.slice(0, 8).map((source) => ({
+        title: source.publisher || source.title,
+        url: source.url,
+        summary: source.summary || "Source saved by the agent.",
+        status: "Checked source",
+      }))
+    : fallbackEvidenceLinks(packet);
+
+  return (
+    <details className="group border border-white/12 bg-[#252321]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[#f7f2ec]">
+        <span>View suggestions, evidence links, and next steps</span>
+        <ChevronRight
+          className="shrink-0 text-[#8f8780] transition group-open:rotate-90"
+          size={17}
+        />
+      </summary>
+      <div className="space-y-5 border-t border-white/12 px-4 py-4">
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-[#f7f2ec]">Suggested route</h3>
+          <p>{routeText}</p>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence links</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {evidenceLinks.map((source) => (
+              <a
+                className="button-press block min-w-0 border border-white/12 bg-[#1f1e1d] p-3 text-[#f7f2ec] hover:border-[#ef6844]/70"
+                href={source.url}
+                key={`${source.title}-${source.url}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <span className="block truncate text-sm font-semibold">{source.title}</span>
+                <span className="mt-1 block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
+                  {source.status}
+                </span>
+                <span className="mt-2 line-clamp-2 block text-xs leading-5 text-[#c7c0b8]">
+                  {source.summary}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-[#f7f2ec]">Next steps</h3>
+          <ol className="list-decimal space-y-1 pl-5">
+            {packet.next_steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </details>
+  );
+}
+
+function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
+  title: string;
+  url: string;
+  summary: string;
+  status: string;
+}> {
+  const medication = packet.case.medication || "medication";
+  const medicationQuery = encodeURIComponent(medication);
+  return [
+    {
+      title: "Plan or PBM price estimate",
+      url: "https://www.cms.gov/priorities/key-initiatives/burden-reduction/real-time-benefit-tools",
+      summary:
+        "Use the member portal or pharmacy benefit estimate to confirm the patient-specific plan price.",
+      status: "Verify next",
+    },
+    {
+      title: "Manufacturer savings terms",
+      url: `https://www.google.com/search?q=${medicationQuery}+manufacturer+savings+card+terms`,
+      summary:
+        "Check whether a commercial copay card, patient support program, or eligibility exclusion applies.",
+      status: "Search target",
+    },
+    {
+      title: "GoodRx cash discount context",
+      url: "https://www.goodrx.com/",
+      summary:
+        "Compare cash discount pricing, with the warning that cash spend may not count toward insurance progress.",
+      status: "Compare",
+    },
+    {
+      title: "SingleCare cash discount context",
+      url: "https://www.singlecare.com/",
+      summary: "Use as a second cash price comparison before deciding cash versus insurance.",
+      status: "Compare",
+    },
+    {
+      title: "Medicine Assistance Tool",
+      url: "https://www.medicineassistancetool.org/",
+      summary: "Search for patient assistance programs that may apply to the medication.",
+      status: "Search target",
+    },
+    {
+      title: "NeedyMeds",
+      url: "https://www.needymeds.org/",
+      summary: "Check for patient assistance, foundation, or coupon program leads.",
+      status: "Search target",
+    },
+  ];
 }
 
 function fallbackRouteText(packet: CaseResultPacket): string {
