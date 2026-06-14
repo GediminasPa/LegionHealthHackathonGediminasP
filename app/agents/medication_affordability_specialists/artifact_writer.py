@@ -25,13 +25,15 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
                         f"Medication: {medication}",
                         f"Diagnosis: {intake.diagnosis or '[confirm diagnosis]'}",
                         "",
-                        "Before pickup, confirm:",
-                        "1. Is Ozempic covered for the documented diagnosis?",
-                        "2. Is prior authorization, step therapy, or a quantity limit required?",
-                        "3. Which pharmacy or mail-order channel gives the lowest plan cost?",
-                        "4. What is the expected copay after the claim is run with insurance?",
-                        "5. Does a commercial savings offer apply, and what monthly cap applies?",
-                        "6. If self-pay is used, will that spend miss deductible or OOP credit?",
+                        "CopayGuard action plan:",
+                        "1. Check the commercial claim path for diagnosis fit, coverage "
+                        "rules, and preferred pharmacy pricing.",
+                        "2. Compare the savings-offer route against NovoCare public "
+                        "self-pay bands.",
+                        "3. Flag any self-pay path that would miss deductible or "
+                        "out-of-pocket credit.",
+                        "4. Prepare prescriber discussion options only if coverage or "
+                        "savings routes are not workable.",
                         "",
                         "Current public estimate bands to verify:",
                         "- Covered commercial route: savings offer may reduce eligible fills, "
@@ -65,13 +67,13 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
                     f"Medication: {medication}",
                     f"Diagnosis: {intake.diagnosis or '[confirm diagnosis]'}",
                     "",
-                    "Before pickup, confirm:",
-                    "1. Is prior authorization, step therapy, or a quantity limit required?",
-                    "2. Does the plan prefer a generic, biosimilar, or therapeutic alternative?",
-                    "3. What is the expected cost at the preferred pharmacy?",
-                    "4. What cash price is available if the claim is not favorable?",
-                    "5. Would cash payment fail to count toward deductible or "
-                    "out-of-pocket progress?",
+                    "CopayGuard action plan:",
+                    "1. Check likely coverage rules and preferred pharmacy pricing before pickup.",
+                    "2. Compare covered generic, biosimilar, or clinically appropriate "
+                    "alternative routes.",
+                    "3. Compare cash pricing only with a warning that it may miss "
+                    "deductible or out-of-pocket progress.",
+                    "4. Prepare the prescriber discussion path if the first route is not workable.",
                     "",
                     "Ask the prescriber before changing to any therapeutic alternative.",
                 ]
@@ -109,13 +111,15 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
                     f"Patient: {intake.patient_name}",
                     f"Medication: {medication}",
                     "",
-                    "Ask the plan:",
-                    "1. What is the expected cost for the next fill at the preferred pharmacy?",
-                    "2. Is the Medicare Prescription Payment Plan available for this member "
-                    "and fill?",
-                    "3. Are lower-cost formulary alternatives available for the prescriber "
-                    "to review?",
-                    "4. Has the member reached the current Part D out-of-pocket threshold?",
+                    "CopayGuard action plan:",
+                    "1. Treat prior authorization as already handled when the intake "
+                    "says approved.",
+                    "2. Screen independent foundation funds and manufacturer "
+                    "free-drug/PAP support before accepting the specialty quote as final.",
+                    "3. Keep the Medicare Prescription Payment Plan as payment "
+                    "smoothing only, not true savings.",
+                    "4. Prepare the exception, coverage-determination, or "
+                    "prescriber-alternative path if support routes are unavailable.",
                     "",
                     "Screen separately for Extra Help, independent foundation support, "
                     "and PAP eligibility.",
@@ -132,11 +136,11 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
                     f"Patient: {intake.patient_name}",
                     f"Medication: {medication}",
                     "",
-                    "Check these routes:",
-                    "1. Manufacturer patient assistance program eligibility.",
-                    "2. Cash price across discount-card and direct-pay programs.",
-                    "3. Clinic financial counselor, FQHC, or charity-care options.",
-                    "4. Prescriber alternatives if the cash price is still unaffordable.",
+                    "CopayGuard action plan:",
+                    "1. Screen manufacturer patient assistance program eligibility.",
+                    "2. Compare cash price across discount-card and direct-pay programs.",
+                    "3. Check clinic financial counselor, FQHC, or charity-care options.",
+                    "4. Prepare prescriber alternatives if the cash price is still unaffordable.",
                 ]
             ),
         }
@@ -149,11 +153,11 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
                 f"Patient: {intake.patient_name}",
                 f"Medication: {medication}",
                 "",
-                "Ask the plan or PBM:",
-                "1. If manufacturer assistance is used, will it count toward the deductible?",
-                "2. Will it count toward the out-of-pocket maximum?",
-                "3. Is enrollment in PrudentRx, SaveOnSP, or a variable copay program required?",
-                "4. What will the true patient responsibility be after assistance is exhausted?",
+                "CopayGuard action plan:",
+                "1. Check whether manufacturer assistance counts toward the deductible.",
+                "2. Check whether it counts toward the out-of-pocket maximum.",
+                "3. Detect PrudentRx, SaveOnSP, or variable-copay program routing.",
+                "4. Estimate the true patient responsibility after assistance is exhausted.",
             ]
         ),
     }

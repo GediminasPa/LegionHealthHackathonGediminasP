@@ -150,6 +150,12 @@ def build_medication_agent_prompt(
             "Treat user-entered intake fields, pasted plan/pharmacy text, and recent user chat "
             "answers as correct working facts for this demo. Do not ask the patient to confirm "
             "a value they already gave you.",
+            "If PA status is approved, do not spend the answer telling the patient to check "
+            "prior authorization. Acknowledge it is already handled and move to affordability "
+            "routes.",
+            "A completed answer should persist ranked options, source links, a cost tracker "
+            "update, and a practical next-step artifact. Do not finish with only generic "
+            "education or a checklist of work for the patient.",
             "Write patient-facing text in plain English. Do not ask the patient to identify "
             "insurance jargon such as accumulator, maximizer, PA, ST, QL, formulary tier, "
             "or OOP max. Ask for visible facts, messages, documents, or permission to "
@@ -535,11 +541,25 @@ async def ask_question(
 ) -> dict[str, Any]:
     """Persist and stream a follow-up question when eligibility facts are missing."""
     intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
-    intake_facts = extract_facts_from_pasted_text(
-        await _combined_user_provided_text(
-            ctx.deps.session, ctx.deps.session_id, intake.pasted_text
-        )
+    combined_user_text = await _combined_user_provided_text(
+        ctx.deps.session, ctx.deps.session_id, intake.pasted_text
     )
+    intake_facts = extract_facts_from_pasted_text(combined_user_text)
+    if _question_answered_by_known_facts(
+        question=question,
+        combined_user_text=combined_user_text,
+        intake=intake,
+        facts=intake_facts,
+    ):
+        payload = {
+            "id": question_id or "question-skipped",
+            "question": patient_friendly_question(question, facts=intake_facts),
+            "choices": choices or [],
+            "skipped": True,
+            "reason": "already_provided",
+        }
+        ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
+        return payload
     question = patient_friendly_question(question, facts=intake_facts)
     if ctx.deps.asked_question:
         return ctx.deps.question_payload or {
@@ -567,6 +587,48 @@ async def ask_question(
     )
     ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
     return payload
+
+
+def _question_answered_by_known_facts(
+    *,
+    question: str,
+    combined_user_text: str,
+    intake: MedicationAffordabilityIntake,
+    facts: dict[str, Any],
+) -> bool:
+    lower_question = question.lower()
+    lower_text = combined_user_text.lower()
+
+    asks_part_d_progress = ("part d" in lower_question or "medicare" in lower_question) and (
+        "out-of-pocket" in lower_question
+        or "oop" in lower_question
+        or "troop" in lower_question
+        or "progress" in lower_question
+        or "remaining" in lower_question
+    )
+    asks_claim_status = any(
+        token in lower_question
+        for token in ("claim", "pharmacy", "processed", "adjudicated", "submitted", "run through")
+    )
+    if asks_part_d_progress and asks_claim_status:
+        return bool(facts.get("has_oop_remaining_signal") and facts.get("has_claim_status_signal"))
+
+    if "prior authorization" in lower_question or " pa " in f" {lower_question} ":
+        return intake.pa_status.lower() == "approved"
+
+    if "household income" in lower_question and "household size" in lower_question:
+        has_income = "income" in lower_text and any(char.isdigit() for char in lower_text)
+        has_size = "household size" in lower_text or "household income and size" in lower_text
+        has_size = has_size or any(
+            marker in lower_text
+            for marker in ("1-person", "2-person", "3-person", "4-person", "people in household")
+        )
+        return has_income and has_size
+
+    if "household size" in lower_question and "household size" in lower_text:
+        return True
+
+    return False
 
 
 def patient_friendly_question(question: str, *, facts: dict[str, Any] | None = None) -> str:

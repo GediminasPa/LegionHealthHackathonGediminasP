@@ -15,7 +15,7 @@
       "plan_name": "High-deductible PPO",
       "plan_id": null,
       "diagnosis": "ADHD",
-      "pasted_text": "Patient is before the first fill. They want likely price blockers checked before pickup: prior authorization, step therapy, quantity limits, generic substitution, cash discount pricing, and whether the plan prefers a different stimulant. Compare insurance processing with cash estimates for generic mixed amphetamine salts ER, brand Adderall XR, generic lisdexamfetamine, and methylphenidate ER if the prescriber considers alternatives clinically appropriate."
+      "pasted_text": "Case reason: The patient wants likely drug cost, plan blockers, and lower-cost alternatives checked before pickup.\n\nStructured intake details:\nDeductible remaining: $1,900 remaining\nOut-of-pocket remaining: $5,600 remaining\nQuantity / days supply: 30 capsules / 30 days\nPreferred pharmacy: CVS retail pharmacy\n\nPatient is before the first fill. They want likely price blockers checked before pickup: prior authorization, step therapy, quantity limits, generic substitution, cash discount pricing, and whether the plan prefers a different stimulant. Compare insurance processing with cash estimates for generic mixed amphetamine salts ER, brand Adderall XR, generic lisdexamfetamine, and methylphenidate ER if the prescriber considers alternatives clinically appropriate."
     }
   },
   {
@@ -34,7 +34,7 @@
       "plan_name": "Commercial PPO pharmacy benefit",
       "plan_id": null,
       "diagnosis": "type 2 diabetes",
-      "pasted_text": "Patient is before the first fill. Prescriber sent Ozempic starter dose for type 2 diabetes. They want likely coverage blockers checked before pickup: FDA-approved indication fit, prior authorization, step therapy, quantity limits, preferred pharmacy, and whether the plan prefers another diabetes medication. Estimate likely price paths without claiming a live PBM quote: insurance claim, commercial savings card if covered, NovoCare self-pay if coverage is unfavorable, cash discount checks, and lower-cost alternatives for the prescriber to review. Compare Ozempic only with clinically appropriate options such as metformin ER, an SGLT2 inhibitor such as Jardiance or Farxiga, another GLP-1 or incretin therapy such as Trulicity or Mounjaro, and obesity-labeled routes such as Wegovy or Zepbound only if the indication changes. Do not present any alternative as interchangeable without prescriber confirmation."
+      "pasted_text": "Case reason: The patient wants likely coverage blockers, public price paths, and clinically reasonable alternatives checked before pickup.\n\nStructured intake details:\nDeductible remaining: $1,400 remaining\nOut-of-pocket remaining: $5,200 remaining\nQuantity / days supply: 1 starter pen / 28 days\nPreferred pharmacy: Walgreens retail pharmacy\n\nPatient is before the first fill. Prescriber sent Ozempic starter dose for type 2 diabetes. They want likely coverage blockers checked before pickup: FDA-approved indication fit, prior authorization, step therapy, quantity limits, preferred pharmacy, and whether the plan prefers another diabetes medication. Estimate likely price paths without claiming a live PBM quote: insurance claim, commercial savings card if covered, NovoCare self-pay if coverage is unfavorable, cash discount checks, and lower-cost alternatives for the prescriber to review. Compare Ozempic only with clinically appropriate options such as metformin ER, an SGLT2 inhibitor such as Jardiance or Farxiga, another GLP-1 or incretin therapy such as Trulicity or Mounjaro, and obesity-labeled routes such as Wegovy or Zepbound only if the indication changes. Do not present any alternative as interchangeable without prescriber confirmation."
     }
   },
   {
@@ -53,7 +53,7 @@
       "plan_name": "Wellcare Value Script PDP",
       "plan_id": "S4802-163-0",
       "diagnosis": "rheumatoid arthritis",
-      "pasted_text": null
+      "pasted_text": "Case reason: The patient already has prior authorization approved but received a high Medicare specialty pharmacy quote, so CopayGuard should skip PA troubleshooting and rank Medicare-correct affordability routes.\n\nStructured intake details:\nDeductible remaining: $0 remaining\nOut-of-pocket remaining: about $2,000 remaining toward the yearly Part D cap\nQuantity / days supply: 4 SureClick pens / 28 days\nPreferred pharmacy: Wellcare preferred specialty pharmacy\nPharmacy claim status: claim already run through Medicare Part D at the specialty pharmacy\nHousehold income and size for assistance screening: 1-person household, about $50,000 annual income\n\nPharmacy quote is $2,100 for Enbrel SureClick after the approved prior authorization. Commercial manufacturer copay cards should be treated as blocked because this is Medicare Part D. Rank independent foundation funds, Amgen Safety Net/free-drug screening, Medicare Extra Help/state assistance if eligible, the Medicare Prescription Payment Plan for payment smoothing, and a formulary exception or prescriber-reviewed alternative only if support routes fail."
     }
   },
   {
@@ -72,7 +72,7 @@
       "plan_name": "Employer PPO with specialty pharmacy benefit",
       "plan_id": null,
       "diagnosis": "rheumatoid arthritis",
-      "pasted_text": "Specialty medication copay assistance will not count toward your deductible and will not apply to your out-of-pocket maximum. A variable copay program may apply. Members may be contacted by PrudentRx or SaveOnSP for enrollment."
+      "pasted_text": "Case reason: The patient used or expected a copay card, but the plan language suggests the discount may not count toward deductible or out-of-pocket progress.\n\nStructured intake details:\nDeductible remaining: $2,300 remaining\nOut-of-pocket remaining: $6,100 remaining\nQuantity / days supply: 4 SureClick pens / 28 days\nPreferred pharmacy: Accredo specialty pharmacy\nPharmacy claim status: specialty pharmacy quote shown after benefit and copay support review\n\nSpecialty medication copay assistance will not count toward your deductible and will not apply to your out-of-pocket maximum. A variable copay program may apply. Members may be contacted by PrudentRx or SaveOnSP for enrollment. CopayGuard should separate today's low charge from whether the plan credits that support toward the deductible and annual out-of-pocket maximum."
     }
   },
   {
@@ -91,7 +91,7 @@
       "plan_name": "Commercial PPO pharmacy benefit",
       "plan_id": null,
       "diagnosis": "obesity",
-      "pasted_text": "Pharmacy quote is about $550 for the first month after savings-card review. Patient wants to know whether the plan will cover Zepbound, whether LillyDirect self-pay is a better fallback, and whether a plan exception or therapeutic alternative should be discussed with the prescriber."
+      "pasted_text": "Case reason: The patient got a high first-month quote and wants CopayGuard to separate insurance approval, savings-card terms, direct self-pay fallback, and prescriber alternatives.\n\nStructured intake details:\nDeductible remaining: $900 remaining\nOut-of-pocket remaining: $4,200 remaining\nQuantity / days supply: 4 pens / 28 days\nPreferred pharmacy: Walmart Pharmacy\nPharmacy claim status: quote is about $550 after savings-card review; plan coverage is still pending\n\nPharmacy quote is about $550 for the first month after savings-card review. Patient wants to know whether the plan will cover Zepbound, whether LillyDirect or another direct self-pay route is a better fallback, whether the savings card has a monthly cap, and whether a plan exception or therapeutic alternative should be discussed with the prescriber."
     }
   }
 ]

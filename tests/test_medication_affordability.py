@@ -255,7 +255,12 @@ async def test_run_stream_emits_typed_events_and_persists_state(
     assert payload["activities"]
     assert payload["sources"]
     assert payload["artifacts"][0]["status"] == "ready"
-    assert payload["case_state"]["state_json"]["options"][0]["id"] == "medicare-payment-plan"
+    options = payload["case_state"]["state_json"]["options"]
+    assert options[0]["id"] == "medicare-foundation-pap-screen"
+    assert {option["id"] for option in options} >= {
+        "medicare-foundation-pap-screen",
+        "medicare-payment-plan",
+    }
 
 
 async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(
@@ -487,7 +492,7 @@ async def test_ozempic_prefill_mock_run_includes_estimate_bands_and_sources(
         49900,
     }
     tracker = payload["case_state"]["state_json"]["cost_tracker"]
-    assert tracker["current_best_label"] == "Best public estimate: commercial savings route"
+    assert tracker["current_best_label"] == "Best public estimate: covered commercial savings path"
     assert tracker["current_best_estimated_price_cents"] == 2500
     assert tracker["confidence"] == "found_source"
     assert payload["artifacts"][0]["title"] == "Ozempic pre-fill coverage and price checklist"

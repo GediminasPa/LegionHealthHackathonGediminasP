@@ -9,15 +9,21 @@ from app.services.medication_affordability_resources import search_curated_resou
 def curated_resource_hints(intake: MedicationAffordabilityIntakeCreate) -> list[dict[str, Any]]:
     medication = intake.medication_name.lower()
     is_enbrel = "enbrel" in medication
+    is_adderall = "adderall" in medication or "amphetamine" in medication
     is_ozempic = "ozempic" in medication or "semaglutide" in medication
+    is_zepbound = "zepbound" in medication or "tirzepatide" in medication
     is_glp1 = is_ozempic or any(
         name in medication for name in ["zepbound", "wegovy", "mounjaro", "trulicity"]
     )
     tags = []
     if is_enbrel:
         tags.append("enbrel")
+    if is_adderall:
+        tags.extend(["cash", "discount", "drug-identity", "nadac"])
     if is_ozempic:
         tags.extend(["ozempic", "semaglutide", "glp-1", "diabetes", "estimate"])
+    elif is_zepbound:
+        tags.extend(["zepbound", "tirzepatide", "glp-1", "cash", "estimate", "manufacturer"])
     elif is_glp1:
         tags.extend(["glp-1", "cash", "discount", "estimate"])
 
@@ -53,6 +59,22 @@ def curated_resource_hints(intake: MedicationAffordabilityIntakeCreate) -> list[
             "rxnorm-drug-normalization",
             "nadac-price-basis",
             "goodrx-specialty-context",
+        ]
+    elif "commercial" in insurance_type and is_zepbound:
+        preferred = [
+            "zepbound-savings-options",
+            "lillydirect-zepbound",
+            "goodrx-specialty-context",
+            "nadac-price-basis",
+            "rxnorm-drug-normalization",
+        ]
+    elif "commercial" in insurance_type and is_adderall:
+        preferred = [
+            "rxnorm-drug-normalization",
+            "nadac-price-basis",
+            "goodrx-specialty-context",
+            "singlecare-cash-discount",
+            "amazon-pharmacy-rxpass",
         ]
     elif "commercial" in insurance_type:
         preferred = [

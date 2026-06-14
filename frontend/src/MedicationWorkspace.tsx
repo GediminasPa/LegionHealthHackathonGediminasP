@@ -972,13 +972,31 @@ function evidenceLinksForPacket(packet: CaseResultPacket): Array<{
 
 function patientFacingSummary(packet: CaseResultPacket): string {
   if (packet.best_route) {
+    if (isMedicareCase(packet)) {
+      return (
+        "Prior authorization is already handled, so this is a Medicare cost-routing case now. " +
+        "I found the cost-lowering routes and kept payment smoothing separate from real savings."
+      );
+    }
+    if (isAccumulatorCase(packet)) {
+      return (
+        "This looks like a copay-card credit issue. I am separating today's lower charge from " +
+        "whether the plan counts that help toward the deductible or out-of-pocket total."
+      );
+    }
+    if (isZepboundCase(packet)) {
+      return (
+        "This looks like a GLP-1 sticker-shock case. I am separating insurance approval, " +
+        "savings-card limits, direct-pay fallback, and prescriber alternatives."
+      );
+    }
     return "I found a route worth trying first and kept backup checks ready.";
   }
   if (isMedicareCase(packet)) {
     return [
       "This looks like a high Medicare specialty-drug quote.",
-      "The useful path is not a generic coupon hunt; it is checking the plan rule, assistance foundations,",
-      "free-drug/PAP options, and monthly payment smoothing.",
+      "If prior authorization is already approved, CopayGuard moves straight to assistance foundations,",
+      "free-drug/PAP options, payment smoothing, and exception or alternative routing.",
     ].join(" ");
   }
   if (packet.costs.quoted_price.cents > 0) {
@@ -999,7 +1017,7 @@ function primaryNextStep(packet: CaseResultPacket): string {
     return agentOwnedStep(packet.next_steps[0]);
   }
   if (isMedicareCase(packet)) {
-    return "I’ll check public Medicare support routes first; paste pharmacy or plan text only if you want the answer to be more patient-specific.";
+    return "I’ll rank foundation/PAP support first and keep the Medicare Prescription Payment Plan labeled as payment smoothing, not savings.";
   }
   return "I’ll check manufacturer support, cash prices, and plan-processing issues first; paste pharmacy text only if you have it.";
 }
@@ -1012,10 +1030,12 @@ function nextStepsForPacket(packet: CaseResultPacket): string[] {
 
   if (isMedicareCase(packet)) {
     return [
-      "I’ll verify whether the quote is deductible, coverage-stage, or specialty-tier driven.",
-      "I’ll screen Medicare Extra Help, state assistance, foundation, and free-drug routes using public criteria first.",
-      "I’ll flag the Medicare Prescription Payment Plan only as payment smoothing, not a real price reduction.",
-      "If support routes do not work, I’ll prepare the plan or prescriber question for an exception or covered alternative.",
+      isPaApprovedCase(packet)
+        ? "I’ll treat prior authorization as already handled and focus on lowering the Medicare specialty cost."
+        : "I’ll check whether a coverage restriction is causing the quote before ranking cost routes.",
+      "I’ll screen foundation funds and manufacturer free-drug/PAP support before treating the quote as final.",
+      "I’ll keep the Medicare Prescription Payment Plan as cash-flow smoothing only, not a price reduction.",
+      "If support routes do not work, I’ll prepare the exception, coverage-determination, or prescriber-alternative path.",
     ];
   }
 
@@ -1170,10 +1190,13 @@ function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
 
 function fallbackRouteText(packet: CaseResultPacket): string {
   if (isMedicareCase(packet)) {
+    const paText = isPaApprovedCase(packet)
+      ? "Prior authorization is already approved, so CopayGuard will not spend the route on PA troubleshooting."
+      : "CopayGuard will check whether a coverage restriction is causing the quote.";
     return [
-      "Because this is Medicare coverage, commercial manufacturer copay cards usually are not the route.",
-      "The stronger first checks are: plan formulary/prior authorization status, whether the quote is deductible-driven,",
-      "Extra Help or state assistance, foundation/PAP support, and the Medicare Prescription Payment Plan if the issue is cash flow.",
+      "Because this is Medicare coverage, commercial manufacturer copay cards usually are blocked.",
+      paText,
+      "The useful routes are foundation/PAP support for possible cost reduction, Medicare payment-plan smoothing for cash flow, and an exception or covered alternative if support is unavailable.",
     ].join(" ");
   }
 
@@ -1196,6 +1219,20 @@ function fallbackRouteText(packet: CaseResultPacket): string {
 
 function isMedicareCase(packet: CaseResultPacket): boolean {
   return `${packet.case.insurance} ${packet.case.plan}`.toLowerCase().includes("medicare");
+}
+
+function isPaApprovedCase(packet: CaseResultPacket): boolean {
+  return packet.case.pa_status.toLowerCase() === "approved";
+}
+
+function isAccumulatorCase(packet: CaseResultPacket): boolean {
+  return `${packet.best_route?.title ?? ""} ${packet.what_we_found}`
+    .toLowerCase()
+    .includes("accumulator");
+}
+
+function isZepboundCase(packet: CaseResultPacket): boolean {
+  return packet.case.medication.toLowerCase().includes("zepbound");
 }
 
 function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {

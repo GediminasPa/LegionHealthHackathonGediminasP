@@ -280,6 +280,34 @@
     "review_cadence": "Monthly and before demos"
   },
   {
+    "id": "zepbound-savings-options",
+    "name": "Zepbound savings options",
+    "url": "https://zepbound.lilly.com/savings",
+    "domains": ["zepbound.lilly.com", "lilly.com"],
+    "tags": ["zepbound", "tirzepatide", "glp-1", "commercial", "cash", "estimate", "manufacturer"],
+    "query_templates": ["Zepbound savings card LillyDirect self-pay options"],
+    "notes_for_agent": "Use for current public Zepbound savings and self-pay route context. Eligibility, dosage, pharmacy channel, taxes, fees, and terms must be verified.",
+    "last_checked_at": "2026-06-13",
+    "category": "Cash, coupon, and direct-pay sources",
+    "status": "Curate now",
+    "use": "Public Zepbound savings and self-pay route context for sticker-shock demos.",
+    "review_cadence": "Monthly and before demos"
+  },
+  {
+    "id": "lillydirect-zepbound",
+    "name": "LillyDirect Zepbound",
+    "url": "https://www.lilly.com/lillydirect/medicines/zepbound",
+    "domains": ["lilly.com"],
+    "tags": ["zepbound", "tirzepatide", "lillydirect", "cash", "direct-pay", "estimate"],
+    "query_templates": ["LillyDirect Zepbound self-pay price"],
+    "notes_for_agent": "Use as a direct-pay fallback source. Do not treat it as an insurance price or guaranteed savings; terms, strengths, fees, and availability can change.",
+    "last_checked_at": "2026-06-13",
+    "category": "Cash, coupon, and direct-pay sources",
+    "status": "Curate now",
+    "use": "Compare direct self-pay pricing against the pharmacy quote when insurance coverage is weak or pending.",
+    "review_cadence": "Monthly and before demos"
+  },
+  {
     "id": "ada-standards-type-2-diabetes-2026",
     "name": "ADA Standards of Care pharmacologic treatment",
     "url": "https://diabetesjournals.org/care/article/49/Supplement_1/S183/163934/9-Pharmacologic-Approaches-to-Glycemic-Treatment",
