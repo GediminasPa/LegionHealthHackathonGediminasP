@@ -156,8 +156,9 @@ def build_medication_agent_prompt(
             "to check prior authorization. Acknowledge it is already handled and move to "
             "affordability routes.",
             "Final patient-facing output must be short and use this structure: one sentence "
-            "explaining the quote, three ranked next steps, and exactly one question only if "
-            "a user-specific fact is still needed.",
+            "starting with 'What I looked at:', three ranked next steps, and exactly one "
+            "question only if a user-specific fact is still needed. If there is a question, "
+            "it must be the final line and nothing should come after it.",
             "Never say stand by, while tools run, deterministic, preflight, missing_facts, "
             "persist, source_ids, specialist, or cash comparator.",
             "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "

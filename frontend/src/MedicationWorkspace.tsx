@@ -108,7 +108,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           const question = String(payload.question ?? payload.content ?? "").trim();
           return {
             ...current,
-            messages: question ? applyFollowUpQuestion(current.messages, question) : current.messages,
+            messages: current.messages,
             status: "waiting",
             activities: [
               ...current.activities,
@@ -1529,20 +1529,6 @@ function applyFinalAssistantMessage(messages: ChatMessage[], content: string): C
   const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
   if (!content.trim()) return filtered;
   return [...filtered, assistantMessage(content, filtered.length)];
-}
-
-function applyFollowUpQuestion(messages: ChatMessage[], question: string): ChatMessage[] {
-  const withoutPendingQuestions = messages.filter((message, index) => {
-    if (!message.content.trim().toLowerCase().startsWith("i need one detail:")) return true;
-    const laterUserIndex = messages.findIndex(
-      (candidate, candidateIndex) => candidateIndex > index && candidate.role === "user",
-    );
-    return laterUserIndex !== -1;
-  });
-  return [
-    ...withoutPendingQuestions,
-    assistantMessage(`I need one detail: ${question}`, withoutPendingQuestions.length),
-  ];
 }
 
 function hasPendingFollowUp(messages: ChatMessage[]): boolean {
