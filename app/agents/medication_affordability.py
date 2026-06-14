@@ -140,31 +140,30 @@ def build_medication_agent_prompt(
     )
     return "\n".join(
         [
-            "Start or continue this medication affordability investigation.",
-            "Always begin by calling get_session_context so you are using persisted state.",
-            "Then call run_case_preflight before ranking routes or drafting artifacts.",
-            "Use tools to persist every material source, option, question, cost update, "
-            "activity, and artifact you create.",
-            "Do not claim a price reduction unless a tool-persisted source supports it; "
-            "use unknown or needs_user_confirmation when eligibility is unresolved.",
+            "Start or continue this medication affordability review.",
+            "Load the session context before answering.",
+            "Use tools as needed, but never describe tool use to the patient.",
+            "Do not claim a price reduction unless evidence supports it.",
             "Treat user-entered intake fields, pasted plan/pharmacy text, and recent user chat "
-            "answers as correct working facts for this demo. Do not ask the patient to confirm "
-            "a value they already gave you.",
-            "If PA status is approved, do not spend the answer telling the patient to check "
-            "prior authorization. Acknowledge it is already handled and move to affordability "
-            "routes.",
-            "A completed answer should persist ranked options, source links, a cost tracker "
-            "update, and a practical next-step artifact. Do not finish with only generic "
-            "education or a checklist of work for the patient.",
-            "Write patient-facing text in plain English. Do not ask the patient to identify "
-            "insurance jargon such as accumulator, maximizer, PA, ST, QL, formulary tier, "
-            "or OOP max. Ask for visible facts, messages, documents, or permission to "
-            "interpret pasted wording instead.",
-            "Own the next steps. If CopayGuard can check a source or route, write it as "
-            "'I will check...' or 'CopayGuard will check...', not as homework for the patient. "
-            "Only ask the patient for one hidden patient-specific fact at a time.",
-            "If you call ask_question, stop there. Do not also return a separate route summary "
-            "or evidence recap in the same turn.",
+            "answers as correct. Do not ask the patient to repeat a value they already gave.",
+            "If quoted price cents is above 0, treat that as a pharmacy/plan price already "
+            "returned to the patient. Do not ask whether the pharmacy already ran the claim. "
+            "Also treat deductible, out-of-pocket, TrOOP/yearly-cap, receipt, EOB, claim, "
+            "or portal-price numbers in the chat as proof the claim/price path was run.",
+            "Do not ask for Medicare Part D out-of-pocket progress just to proceed. If it "
+            "is missing, continue with next steps and say it can refine the estimate later.",
+            "If prior authorization is approved, do not spend the answer telling the patient "
+            "to check prior authorization. Acknowledge it is already handled and move to "
+            "affordability routes.",
+            "Final patient-facing output must be short and use this structure: one sentence "
+            "explaining the quote, three ranked next steps, and exactly one question only if "
+            "a user-specific fact is still needed.",
+            "Never say stand by, while tools run, deterministic, preflight, missing_facts, "
+            "persist, source_ids, specialist, or cash comparator.",
+            "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "
+            "smoothing as cash-flow help only, and exception/alternative routing as backup.",
+            "For commercial high quotes, rank insurance processing, manufacturer support, cash "
+            "comparison with deductible warning, then exception/alternative routing.",
             "",
             "Current intake:",
             f"- Patient/display name: {patient_display_name(intake.patient_name, 'not provided')}",
@@ -175,12 +174,6 @@ def build_medication_agent_prompt(
             f"- Plan: {intake.plan_name or 'unknown'}",
             f"- PA status: {intake.pa_status}",
             f"- Diagnosis: {intake.diagnosis or 'unknown'}",
-            "",
-            "Persisted state snapshot:",
-            str(state.state_json),
-            "",
-            "Current orchestrator preflight:",
-            str(state.state_json.get("case_analysis") or {}),
             "",
             "Recent chat transcript:",
             transcript,
@@ -540,6 +533,7 @@ async def ask_question(
     choices: list[str] | None = None,
 ) -> dict[str, Any]:
     """Persist and stream a follow-up question when eligibility facts are missing."""
+    question = " ".join(question.strip().split())
     intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
     combined_user_text = await _combined_user_provided_text(
         ctx.deps.session, ctx.deps.session_id, intake.pasted_text
@@ -553,14 +547,13 @@ async def ask_question(
     ):
         payload = {
             "id": question_id or "question-skipped",
-            "question": patient_friendly_question(question, facts=intake_facts),
+            "question": question,
             "choices": choices or [],
             "skipped": True,
             "reason": "already_provided",
         }
         ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
         return payload
-    question = patient_friendly_question(question, facts=intake_facts)
     if ctx.deps.asked_question:
         return ctx.deps.question_payload or {
             "question": question,
@@ -629,62 +622,6 @@ def _question_answered_by_known_facts(
         return True
 
     return False
-
-
-def patient_friendly_question(question: str, *, facts: dict[str, Any] | None = None) -> str:
-    value = " ".join(question.strip().split())
-    lower = value.lower()
-    if (
-        "part d" in lower
-        and ("out-of-pocket" in lower or "oop" in lower)
-        and (
-            "processed" in lower
-            or "adjudicated" in lower
-            or "pharmacy" in lower
-            or "claim" in lower
-            or "submitted" in lower
-        )
-    ):
-        oop_remaining_is_provided = bool(facts and facts.get("has_oop_remaining_signal"))
-        if oop_remaining_is_provided or "pasted text shows" in lower or "pasted text says" in lower:
-            return (
-                "Has the pharmacy already run this prescription through your Medicare Part D plan? "
-                "If you are not sure, paste the pharmacy text or plan message."
-            )
-        return (
-            "Has the pharmacy already run this prescription through your Medicare Part D plan?\n"
-            "- If you know it, include how much has already counted toward your yearly Part D "
-            "out-of-pocket total.\n"
-            "- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. "
-            'Look for "out-of-pocket", "TrOOP", or "amount toward yearly cap". If unsure, '
-            "paste the wording."
-        )
-    if "household income" in lower and "household size" in lower:
-        return "What is your approximate annual household income and household size?"
-    if "household size" in lower and "income" not in lower:
-        return "How many people are in your household?"
-    if ("accumulator" in lower or "maximizer" in lower) and (
-        "copay" in lower or "coupon" in lower or "deductible" in lower or "oop" in lower
-    ):
-        return (
-            "When you used or expected the copay card, did the pharmacy, coupon terms, "
-            "or insurance portal say the discount would not count toward your deductible "
-            "or out-of-pocket total? If you are not sure, paste the message or plan wording "
-            "and I will interpret it."
-        )
-
-    replacements = {
-        "OOP": "out-of-pocket",
-        "oop": "out-of-pocket",
-        "PA": "prior authorization",
-        "ST": "step therapy",
-        "QL": "quantity limit",
-        "manufacturer copay assistance": "manufacturer copay card",
-        "eligibility": "whether you qualify",
-    }
-    for raw, friendly in replacements.items():
-        value = value.replace(raw, friendly)
-    return value
 
 
 @medication_affordability_agent.tool(sequential=True)

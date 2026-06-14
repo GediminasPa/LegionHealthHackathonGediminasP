@@ -993,18 +993,6 @@ async def run_agent_investigation(
     deps = MedicationAgentDeps(session=db, session_id=session_id, run_id=run.id)
 
     try:
-        guided_events = await _medicare_enbrel_guided_demo_events(
-            db=db,
-            session_id=session_id,
-            run_id=run.id,
-            intake=intake,
-            run=run,
-        )
-        if guided_events is not None:
-            for event in guided_events:
-                yield event
-            return
-
         started = MedicationAffordabilityActivity(
             session_id=session_id,
             run_id=run.id,
@@ -1052,14 +1040,6 @@ async def run_agent_investigation(
             db.add(message)
             await db.commit()
             yield _event("agent_message", session_id, run.id, {"content": final_text})
-
-        for event in await _ensure_structured_demo_result(
-            db=db,
-            session_id=session_id,
-            run_id=run.id,
-            intake=intake,
-        ):
-            yield event
 
         completed = MedicationAffordabilityActivity(
             session_id=session_id,

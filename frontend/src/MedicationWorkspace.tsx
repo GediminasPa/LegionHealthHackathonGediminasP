@@ -39,7 +39,6 @@ type Props = {
 };
 
 const STREAMING_ASSISTANT_ID = "assistant-streaming";
-const RESULT_ASSISTANT_ID_PREFIX = "assistant-result";
 const GUIDED_RUN_STEP_DELAY_MS = 560;
 const autoStartedSessionIds = globalStringSet("__copayGuardAutoStartedSessionIds");
 const requestedRunKeys = globalStringSet("__copayGuardRequestedRunKeys");
@@ -106,7 +105,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           };
         }
         if (event.type === "question") {
-          const question = patientFriendlyQuestion(String(payload.question ?? payload.content ?? ""));
+          const question = String(payload.question ?? payload.content ?? "").trim();
           return {
             ...current,
             messages: question ? applyFollowUpQuestion(current.messages, question) : current.messages,
@@ -274,7 +273,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
       current
         ? {
             ...current,
-            messages: [...appendResultMessageIfNeeded(current), message],
+            messages: [...current.messages, message],
             status: "investigating",
           }
         : current,
@@ -539,15 +538,10 @@ function ResultPacketView({
   running: boolean;
   status: MedicationSnapshot["status"];
 }) {
-  const hasResult =
-    packet.status === "ready" ||
-    packet.best_route != null ||
-    packet.resources.length > 0 ||
-    packet.drafts.length > 0;
   const pendingFollowUp = latestFollowUpQuestion(messages);
-  const shouldShowResult = hasResult && !running && !pendingFollowUp;
   const progressRows = buildProgressRows(activities);
   const messageRows = visibleTranscriptMessages(messages);
+  const shouldShowResult = false;
   const lastActivity = activities.at(-1);
   const liveProgressText = agentProgressText(activities, running, status);
   const showLiveProgress = running && !pendingFollowUp;
@@ -627,11 +621,7 @@ function buildProgressRows(activities: ActivityEvent[]): TranscriptRow[] {
 }
 
 function visibleTranscriptMessages(messages: ChatMessage[]): ChatMessage[] {
-  const latestQuestionIndex = latestPendingFollowUpMessageIndex(messages);
-  return messages.filter((message, index) => {
-    if (message.role === "user") return message.content.trim().length > 0;
-    return index === latestQuestionIndex || isCapturedResultMessage(message);
-  });
+  return messages.filter((message) => message.content.trim().length > 0);
 }
 
 function normalizeTranscriptText(value: string): string {
@@ -710,54 +700,14 @@ function TranscriptMessageRow({ message }: { message: ChatMessage }) {
 
 function isPatientVisibleAssistantContent(content: string): boolean {
   const trimmed = content.trim();
-  if (!trimmed) return false;
-  return trimmed.toLowerCase().startsWith("i need one detail:");
-}
-
-function isCapturedResultMessage(message: ChatMessage): boolean {
-  return message.role === "assistant" && message.id.startsWith(RESULT_ASSISTANT_ID_PREFIX);
+  return trimmed.length > 0;
 }
 
 function formatChatMessage(message: ChatMessage): string {
   if (message.role === "user") return message.content;
   const content = message.content.trim();
   const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
-  if (followUp !== content) return `One quick question: ${shortFollowUpQuestion(followUp)}`;
-  return patientFriendlyQuestion(content);
-}
-
-function shortFollowUpQuestion(question: string): string {
-  const lower = question.toLowerCase();
-  if (
-    lower.includes("part d") &&
-    (lower.includes("out-of-pocket") || lower.includes("oop")) &&
-    (lower.includes("processed") ||
-      lower.includes("adjudicated") ||
-      lower.includes("pharmacy") ||
-      lower.includes("claim") ||
-      lower.includes("submitted"))
-  ) {
-    if (lower.includes("pasted text shows") || lower.includes("pasted text says")) {
-      return (
-        "Has the pharmacy already run this prescription through your Medicare Part D plan? " +
-        "If you are not sure, paste the pharmacy text or plan message."
-      );
-    }
-    return partDProgressQuestion();
-  }
-  if (lower.includes("household income") && lower.includes("household size")) {
-    return "What is your approximate annual household income and household size?";
-  }
-  if (lower.includes("household size")) {
-    return "What is your household size?";
-  }
-  if (lower.includes("income")) {
-    return "What is your approximate annual household income?";
-  }
-  if (lower.includes("pharmacy") && lower.includes("insurance")) {
-    return "Did the pharmacy run this through insurance?";
-  }
-  return patientFriendlyQuestion(question);
+  return followUp || content;
 }
 
 function FormattedAssistantMessage({ content }: { content: string }) {
@@ -815,62 +765,6 @@ function markdownishBlocks(content: string): MarkdownishBlock[] {
 
 function formatInlineMarkdown(text: string): string {
   return text.replace(/\*\*(.*?)\*\*/g, "$1").trim();
-}
-
-function patientFriendlyQuestion(question: string): string {
-  const value = question.trim().replace(/\s+/g, " ");
-  const lower = value.toLowerCase();
-  if (
-    lower.includes("part d") &&
-    (lower.includes("out-of-pocket") || lower.includes("oop")) &&
-    (lower.includes("processed") ||
-      lower.includes("adjudicated") ||
-      lower.includes("pharmacy") ||
-      lower.includes("claim") ||
-      lower.includes("submitted"))
-  ) {
-    if (lower.includes("pasted text shows") || lower.includes("pasted text says")) {
-      return (
-        "Has the pharmacy already run this prescription through your Medicare Part D plan? " +
-        "If you are not sure, paste the pharmacy text or plan message."
-      );
-    }
-    return partDProgressQuestion();
-  }
-  if (lower.includes("household income") && lower.includes("household size")) {
-    return "What is your approximate annual household income and household size?";
-  }
-  if (lower.includes("household size") && !lower.includes("income")) {
-    return "How many people are in your household?";
-  }
-  if (
-    (lower.includes("accumulator") || lower.includes("maximizer")) &&
-    (lower.includes("copay") ||
-      lower.includes("coupon") ||
-      lower.includes("deductible") ||
-      lower.includes("oop"))
-  ) {
-    return (
-      "When you used or expected the copay card, did the pharmacy, coupon terms, or insurance " +
-      "portal say the discount would not count toward your deductible or out-of-pocket total? " +
-      "If you are not sure, paste the message or plan wording and I will interpret it."
-    );
-  }
-  return value
-    .replace(/\bOOP\b/g, "out-of-pocket")
-    .replace(/\bPA\b/g, "prior authorization")
-    .replace(/\bST\b/g, "step therapy")
-    .replace(/\bQL\b/g, "quantity limit")
-    .replace(/manufacturer copay assistance/gi, "manufacturer copay card")
-    .replace(/eligibility/gi, "whether you qualify");
-}
-
-function partDProgressQuestion(): string {
-  return [
-    "Has the pharmacy already run this prescription through your Medicare Part D plan?",
-    "- If you know it, include how much has already counted toward your yearly Part D out-of-pocket total.",
-    '- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. Look for "out-of-pocket", "TrOOP", or "amount toward yearly cap". If unsure, paste the wording.',
-  ].join("\n");
 }
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
@@ -1635,81 +1529,6 @@ function applyFinalAssistantMessage(messages: ChatMessage[], content: string): C
   const filtered = messages.filter((message) => message.id !== STREAMING_ASSISTANT_ID);
   if (!content.trim()) return filtered;
   return [...filtered, assistantMessage(content, filtered.length)];
-}
-
-function appendResultMessageIfNeeded(snapshot: MedicationSnapshot): ChatMessage[] {
-  if (snapshot.status !== "ready") return snapshot.messages;
-  const packet = buildResultPacket(snapshot);
-  if (!packetHasResult(packet)) return snapshot.messages;
-
-  const content = resultMessageContent(packet);
-  const alreadyCaptured = snapshot.messages.some(
-    (message) =>
-      isCapturedResultMessage(message) &&
-      normalizeTranscriptText(message.content) === normalizeTranscriptText(content),
-  );
-  if (alreadyCaptured) return snapshot.messages;
-
-  return [
-    ...snapshot.messages,
-    {
-      id: `${RESULT_ASSISTANT_ID_PREFIX}-${Date.now()}-${snapshot.messages.length}`,
-      role: "assistant",
-      content,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
-
-function packetHasResult(packet: CaseResultPacket): boolean {
-  return (
-    packet.status === "ready" ||
-    packet.best_route != null ||
-    packet.resources.length > 0 ||
-    packet.drafts.length > 0
-  );
-}
-
-function resultMessageContent(packet: CaseResultPacket): string {
-  const potentialSavings =
-    packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
-      ? null
-      : packet.costs.potential_savings.formatted;
-  const hasLowerVerifiedPrice =
-    packet.costs.best_price.cents != null &&
-    packet.costs.best_price.cents < packet.costs.quoted_price.cents;
-  const priceRead = [
-    `The pharmacy quote is ${packet.costs.quoted_price.formatted}.`,
-    hasLowerVerifiedPrice
-      ? `The best verified estimate right now is ${packet.costs.best_price.formatted}.`
-      : "I do not yet have a verified lower patient-specific price than that quote.",
-    potentialSavings ? `That is a potential savings of ${potentialSavings}.` : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const routeText = packet.best_route
-    ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
-    : fallbackRouteText(packet);
-  const evidenceLinks = evidenceLinksForPacket(packet).slice(0, 6);
-  const nextSteps = nextStepsForPacket(packet);
-
-  return [
-    `Reviewing ${packet.case.medication || "this medication"} for ${packet.case.insurance}.`,
-    "",
-    patientFacingSummary(packet),
-    "",
-    priceRead,
-    "",
-    routeText,
-    "",
-    `Next: ${primaryNextStep(packet)}`,
-    "",
-    "Evidence CopayGuard uses:",
-    ...evidenceLinks.map((source) => `- ${source.title}: ${source.summary}`),
-    "",
-    "What CopayGuard will check:",
-    ...nextSteps.map((step) => `- ${step}`),
-  ].join("\n");
 }
 
 function applyFollowUpQuestion(messages: ChatMessage[], question: string): ChatMessage[] {
