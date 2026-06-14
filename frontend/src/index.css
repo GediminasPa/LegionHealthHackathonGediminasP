@@ -143,6 +143,31 @@
     flex-shrink: 0;
   }
 
+  .workspace-sidebar > details {
+    flex-shrink: 0;
+  }
+
+  .sidebar-disclosure > summary {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .sidebar-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sidebar-disclosure > summary:focus-visible {
+    box-shadow: inset 0 0 0 1px #f7f2ec;
+  }
+
+  .sidebar-disclosure-chevron {
+    transition: transform 140ms ease;
+  }
+
+  .sidebar-disclosure[open] .sidebar-disclosure-chevron {
+    transform: rotate(90deg);
+  }
+
   .agent-transcript-scroll {
     overflow-y: auto;
     scrollbar-color: #746b65 transparent;

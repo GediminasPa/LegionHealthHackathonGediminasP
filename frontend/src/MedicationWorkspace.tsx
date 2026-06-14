@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   ArrowUp,
+  ChevronRight,
   CheckCircle2,
   CircleDot,
   ExternalLink,
@@ -311,7 +312,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
               statusText={statusText}
             />
             <RouteSummary options={snapshot.options} />
-            <CaseSnapshot intake={snapshot.intake} flags={snapshot.flags} status={snapshot.status} />
+            <CaseSnapshot intake={snapshot.intake} flags={snapshot.flags} />
             <DraftSummary artifactCount={snapshot.artifacts.length} />
           </aside>
         </div>
@@ -751,35 +752,47 @@ function extractActionItems(content: string): string[] {
 }
 
 function RouteSummary({ options }: { options: AffordabilityOption[] }) {
-  return (
-    <section className="border border-white/12 bg-[#2b2928] p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-[#f7f2ec]">
-          <Route size={19} />
-          Best routes so far
-        </h2>
-        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          {options.length} found
-        </span>
-      </div>
+  const topRoute = options[0];
 
-      <div className="mt-4 grid gap-3">
+  return (
+    <details className="sidebar-disclosure border border-white/12 bg-[#2b2928]">
+      <summary className="list-none p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-[#f7f2ec]">
+              <Route size={17} />
+              Best routes so far
+            </h2>
+            <p className="ui-sans mt-2 truncate text-xs leading-5 text-[#c7c0b8]">
+              {topRoute ? `Top route: ${topRoute.title}` : "No ranked routes yet"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+              {options.length} found
+            </span>
+            <ChevronRight className="sidebar-disclosure-chevron text-[#8f8780]" size={17} />
+          </div>
+        </div>
+      </summary>
+
+      <div className="grid gap-3 border-t border-white/12 p-4 sm:p-5">
         {options.length === 0 ? (
-          <p className="ui-sans border border-dashed border-white/12 bg-[#1f1e1d] p-4 text-sm leading-6 text-[#c7c0b8]">
+          <p className="ui-sans border border-dashed border-white/12 bg-[#1f1e1d] p-3 text-sm leading-6 text-[#c7c0b8]">
             Ranked affordability routes will appear here as the agent validates them.
           </p>
         ) : null}
         {options.map((option, index) => (
-          <article className="border border-white/12 bg-[#1f1e1d] p-4" key={option.id}>
+          <article className="border border-white/12 bg-[#1f1e1d] p-3" key={option.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <h3 className="min-w-0 text-base font-semibold leading-6 text-[#f7f2ec]">
+              <h3 className="min-w-0 text-sm font-semibold leading-6 text-[#f7f2ec]">
                 {index + 1}. {option.title}
               </h3>
               <span className="ui-sans max-w-full shrink-0 break-words border border-white/12 bg-[#302e2c] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
                 {labelize(option.confidence)}
               </span>
             </div>
-            <p className="ui-sans mt-2 text-sm leading-6 text-[#c7c0b8]">{option.summary}</p>
+            <p className="ui-sans mt-2 text-xs leading-5 text-[#c7c0b8]">{option.summary}</p>
             {option.dropType ? (
               <p className="ui-sans mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
                 {labelize(option.dropType)}
@@ -788,7 +801,7 @@ function RouteSummary({ options }: { options: AffordabilityOption[] }) {
           </article>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -842,57 +855,74 @@ function FollowUpComposer({
 function CaseSnapshot({
   intake,
   flags,
-  status,
 }: {
   intake: MedicationIntakeData;
   flags: string[];
-  status: MedicationSnapshot["status"];
 }) {
+  const compactSummary = compactCaseSummary(intake);
+
   return (
-    <section className="w-full min-w-0 overflow-hidden border border-white/12 bg-[#2b2928] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold text-[#f7f2ec]">Case</h2>
-        <span className={`ui-sans shrink-0 border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${statusBadgeClass(status)}`}>
-          {status}
-        </span>
-      </div>
-      <dl className="mt-4 grid gap-3">
-        <Fact label="Client" value={intake.patientName || "Patient"} />
-        <Fact label="Medication" value={intake.medicationName || "Medication"} />
-        <Fact label="Plan" value={intake.planName || intake.insuranceType} />
-        <Fact label="Quote" value={formatCents(intake.quotedPriceCents)} />
-      </dl>
-      <div className="mt-4 border border-white/12 bg-[#1f1e1d] p-3">
-        <p className="ui-sans flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#f7f2ec]">
-          <ShieldCheck size={15} />
-          Guardrails
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {(flags.length ? flags : ["confirm eligibility", "no guaranteed savings"])
-            .slice(0, 4)
-            .map((flag) => (
-              <span
-                className="ui-sans border border-white/12 bg-[#2b2928] px-2 py-1 text-xs font-semibold text-[#c7c0b8]"
-                key={flag}
-              >
-                {labelize(flag)}
-              </span>
-            ))}
+    <details className="sidebar-disclosure w-full min-w-0 overflow-hidden border border-white/12 bg-[#2b2928]">
+      <summary className="list-none p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-[#f7f2ec]">Case</h2>
+            <p className="ui-sans mt-2 text-xs leading-5 text-[#c7c0b8]">{compactSummary}</p>
+          </div>
+          <ChevronRight className="sidebar-disclosure-chevron mt-0.5 shrink-0 text-[#8f8780]" size={17} />
+        </div>
+      </summary>
+
+      <div className="border-t border-white/12 p-4">
+        <dl className="grid grid-cols-2 gap-2">
+          <Fact label="Client" value={intake.patientName || "Patient"} />
+          <Fact label="Medication" value={intake.medicationName || "Medication"} />
+          <Fact label="Plan" value={intake.planName || intake.insuranceType} />
+          <Fact label="Quote" value={formatCents(intake.quotedPriceCents)} />
+        </dl>
+        <div className="mt-3 border border-white/12 bg-[#1f1e1d] p-3">
+          <p className="ui-sans flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#f7f2ec]">
+            <ShieldCheck size={15} />
+            Guardrails
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(flags.length ? flags : ["confirm eligibility", "no guaranteed savings"])
+              .slice(0, 4)
+              .map((flag) => (
+                <span
+                  className="ui-sans border border-white/12 bg-[#2b2928] px-2 py-1 text-xs font-semibold text-[#c7c0b8]"
+                  key={flag}
+                >
+                  {labelize(flag)}
+                </span>
+              ))}
+          </div>
         </div>
       </div>
-    </section>
+    </details>
   );
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 overflow-hidden border border-white/12 bg-[#1f1e1d] p-3">
-      <dt className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+    <div className="min-w-0 overflow-hidden border border-white/12 bg-[#1f1e1d] p-2.5">
+      <dt className="ui-sans text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
         {label}
       </dt>
-      <dd className="mt-1 break-words text-sm font-semibold text-[#f7f2ec]">{value}</dd>
+      <dd className="mt-1 break-words text-xs font-semibold leading-5 text-[#f7f2ec]">{value}</dd>
     </div>
   );
+}
+
+function compactCaseSummary(intake: MedicationIntakeData): string {
+  return [
+    intake.patientName || "Patient",
+    intake.medicationName || "Medication",
+    intake.planName || intake.insuranceType,
+    intake.quotedPriceCents > 0 ? `${formatCents(intake.quotedPriceCents)} quote` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function DraftSummary({ artifactCount }: { artifactCount: number }) {
