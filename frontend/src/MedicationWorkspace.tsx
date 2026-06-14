@@ -564,6 +564,14 @@ function ResultPacketView({
   const shouldShowResult = hasResult && !running;
   const rows = buildTranscriptRows(activities, messages);
   const lastActivity = activities.at(-1);
+  const liveProgressText = agentProgressText(activities, running, status);
+  const lastTranscriptRow = rows.at(-1);
+  const showLiveProgress =
+    running &&
+    !(
+      lastTranscriptRow?.kind === "status" &&
+      normalizeTranscriptText(lastTranscriptRow.text) === normalizeTranscriptText(liveProgressText)
+    );
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -593,11 +601,11 @@ function ResultPacketView({
             />
           ),
         )}
-        {running ? (
+        {showLiveProgress ? (
           <TranscriptStatusRow
             completed={false}
             pulse
-            text={agentProgressText(activities, running, status)}
+            text={liveProgressText}
           />
         ) : null}
         {!running && rows.length === 0 && !shouldShowResult ? (
@@ -653,14 +661,18 @@ function buildTranscriptRows(
     })),
   ].sort((left, right) => left.sort - right.sort);
 
-  return rows.filter((row, index) => {
-    const previous = rows[index - 1];
-    return !(
-      row.kind === "status" &&
-      previous?.kind === "status" &&
-      previous.text === row.text
-    );
+  const seenStatusTexts = new Set<string>();
+  return rows.filter((row) => {
+    if (row.kind === "message") return true;
+    const key = normalizeTranscriptText(row.text);
+    if (seenStatusTexts.has(key)) return false;
+    seenStatusTexts.add(key);
+    return true;
   });
+}
+
+function normalizeTranscriptText(value: string): string {
+  return value.trim().toLowerCase().replace(/\.+$/, "");
 }
 
 function dateSort(value: string | null | undefined, fallback: number): number {
@@ -783,6 +795,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
     ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
     : fallbackRouteText(packet);
   const nextStep = primaryNextStep(packet);
+  const evidenceLinks = evidenceLinksForPacket(packet);
 
   return (
     <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
@@ -794,19 +807,49 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
       <p>{priceRead}</p>
       <p>{routeText}</p>
       <p>Next: {nextStep}</p>
-      <SuggestionsDisclosure packet={packet} routeText={routeText} />
+
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence links</h3>
+        <div className="grid gap-1.5">
+          {evidenceLinks.map((source) => (
+            <a
+              className="button-press grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border border-white/12 bg-[#252321] px-3 py-2 text-[#f7f2ec] hover:border-[#ef6844]/70"
+              href={source.url}
+              key={`${source.title}-${source.url}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <span className="truncate text-xs font-semibold">{source.title}</span>
+              <span className="text-[0.64rem] font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
+                {source.status}
+              </span>
+              <span className="col-span-2 line-clamp-1 text-xs leading-5 text-[#c7c0b8]">
+                {source.summary}
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-[#f7f2ec]">Next steps</h3>
+        <ol className="list-decimal space-y-1 pl-5">
+          {packet.next_steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
 
-function SuggestionsDisclosure({
-  packet,
-  routeText,
-}: {
-  packet: CaseResultPacket;
-  routeText: string;
-}) {
-  const evidenceLinks = packet.resources.length
+function evidenceLinksForPacket(packet: CaseResultPacket): Array<{
+  title: string;
+  url: string;
+  summary: string;
+  status: string;
+}> {
+  return packet.resources.length
     ? packet.resources.slice(0, 8).map((source) => ({
         title: source.publisher || source.title,
         url: source.url,
@@ -814,56 +857,6 @@ function SuggestionsDisclosure({
         status: "Checked source",
       }))
     : fallbackEvidenceLinks(packet);
-
-  return (
-    <details className="group border border-white/12 bg-[#252321]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[#f7f2ec]">
-        <span>View suggestions, evidence links, and next steps</span>
-        <ChevronRight
-          className="shrink-0 text-[#8f8780] transition group-open:rotate-90"
-          size={17}
-        />
-      </summary>
-      <div className="space-y-5 border-t border-white/12 px-4 py-4">
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-[#f7f2ec]">Suggested route</h3>
-          <p>{routeText}</p>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence links</h3>
-          <div className="grid gap-1.5">
-            {evidenceLinks.map((source) => (
-              <a
-                className="button-press grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border border-white/12 bg-[#1f1e1d] px-3 py-2 text-[#f7f2ec] hover:border-[#ef6844]/70"
-                href={source.url}
-                key={`${source.title}-${source.url}`}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <span className="truncate text-xs font-semibold">{source.title}</span>
-                <span className="text-[0.64rem] font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
-                  {source.status}
-                </span>
-                <span className="col-span-2 line-clamp-1 text-xs leading-5 text-[#c7c0b8]">
-                  {source.summary}
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-[#f7f2ec]">Next steps</h3>
-          <ol className="list-decimal space-y-1 pl-5">
-            {packet.next_steps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
-      </div>
-    </details>
-  );
 }
 
 function patientFacingSummary(packet: CaseResultPacket): string {
