@@ -78,6 +78,7 @@ async def grok_web_search(
             headers={"Authorization": f"Bearer {settings.grok_api_key}"},
             json={
                 "model": settings.agent_model.split(":", 1)[-1],
+                "reasoning": {"effort": settings.agent_reasoning_effort},
                 "input": [{"role": "user", "content": query}],
                 "tools": [web_search_tool],
             },
