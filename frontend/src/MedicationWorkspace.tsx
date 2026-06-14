@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import {
@@ -763,8 +764,51 @@ function markdownishBlocks(content: string): MarkdownishBlock[] {
   return blocks.length ? blocks : [{ kind: "paragraph", text: normalized }];
 }
 
-function formatInlineMarkdown(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, "$1").trim();
+function formatInlineMarkdown(text: string): ReactNode[] {
+  const cleaned = text.replace(/\*\*(.*?)\*\*/g, "$1").trim();
+  const parts: ReactNode[] = [];
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(cleaned)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(cleaned.slice(lastIndex, match.index));
+    }
+
+    const label = match[1] ?? match[3];
+    const rawUrl = match[2] ?? match[3];
+    const { url, suffix } = splitTrailingUrlPunctuation(rawUrl);
+    parts.push(
+      <a
+        className="font-semibold text-[#ff9a74] underline decoration-[#ff9a74]/45 underline-offset-4 hover:text-[#ffc3ad]"
+        href={url}
+        key={`${url}-${match.index}`}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {label}
+      </a>,
+    );
+    if (suffix) parts.push(suffix);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < cleaned.length) {
+    parts.push(cleaned.slice(lastIndex));
+  }
+
+  return parts.length ? parts : [cleaned];
+}
+
+function splitTrailingUrlPunctuation(rawUrl: string): { suffix: string; url: string } {
+  let url = rawUrl;
+  let suffix = "";
+  while (/[),.]$/.test(url)) {
+    suffix = `${url.at(-1)}${suffix}`;
+    url = url.slice(0, -1);
+  }
+  return { suffix, url: url || rawUrl };
 }
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {

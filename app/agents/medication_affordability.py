@@ -167,6 +167,13 @@ def build_medication_agent_prompt(
             "it must be the final line and nothing should come after it.",
             "The final answer may contain only these sections: What I looked at, Next steps, "
             "and Question when needed.",
+            "If the user asks for a plan, links, checklist, script, application steps, or what "
+            "to do, answer that request directly with Plan, Links, and What to say sections. "
+            "Do not repeat the previous generic three-step answer.",
+            "Do not repeat the same answer from the prior assistant turn. Add concrete details, "
+            "links, scripts, or decision criteria on follow-up turns.",
+            "When including links, use Markdown link syntax: [Program name](https://example.com). "
+            "Do not give bare program names when a URL is known.",
             "Always rank the next steps using the facts available. Never say options cannot "
             "be ranked until more information is provided.",
             "Never say stand by, while tools run, deterministic, preflight, missing_facts, "
@@ -183,6 +190,15 @@ def build_medication_agent_prompt(
             "the final assistant answer as the final line. Nothing should come after it.",
             "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "
             "smoothing as cash-flow help only, and exception/alternative routing as backup.",
+            "For Medicare Enbrel/rheumatoid arthritis cases, name the concrete routes and "
+            "links: [PAN Foundation RA fund]"
+            "(https://www.panfoundation.org/disease-funds/rheumatoid-arthritis/), "
+            "[HealthWell AutoImmune Medicare Access Fund]"
+            "(https://www.healthwellfoundation.org/fund/autoimmune-medicare-access/), "
+            "[Amgen Safety Net Foundation](https://www.amgensafetynetfoundation.com/), "
+            "[Medicare Extra Help](https://www.ssa.gov/medicare/part-d-extra-help), and "
+            "[Medicare Prescription Payment Plan]"
+            "(https://www.medicare.gov/prescription-payment-plan).",
             "For commercial high quotes, rank insurance processing, manufacturer support, cash "
             "comparison with deductible warning, then exception/alternative routing.",
             "",
