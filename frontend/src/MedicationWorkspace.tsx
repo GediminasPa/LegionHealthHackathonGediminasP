@@ -452,12 +452,13 @@ function AgentWorkPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <AgentProgressLine
+        <ResultPacketView
           activities={snapshot.activities}
+          messages={snapshot.messages}
+          packet={resultPacket}
           running={running}
           status={status}
         />
-        <ResultPacketView messages={snapshot.messages} packet={resultPacket} running={running} />
         <FollowUpComposer
           draft={draft}
           running={running}
@@ -465,29 +466,6 @@ function AgentWorkPanel({
           submitFollowUp={submitFollowUp}
         />
       </div>
-    </section>
-  );
-}
-
-function AgentProgressLine({
-  activities,
-  running,
-  status,
-}: {
-  activities: ActivityEvent[];
-  running: boolean;
-  status: MedicationSnapshot["status"];
-}) {
-  const text = agentProgressText(activities, running, status);
-  const complete = status === "ready" && !running;
-  return (
-    <section className="ui-sans flex min-h-11 items-center gap-3 bg-[#1f1e1d] px-4 py-3 text-sm leading-6 text-[#ded8d0]">
-      <span
-        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-          running ? "animate-pulse bg-[#ef6844]" : complete ? "bg-[#6edc96]" : "bg-[#c7c0b8]"
-        }`}
-      />
-      <p className={running ? "animate-pulse" : ""}>{text}</p>
     </section>
   );
 }
@@ -566,33 +544,163 @@ type CaseResultPacket = {
 };
 
 function ResultPacketView({
+  activities,
   messages,
   packet,
   running,
+  status,
 }: {
+  activities: ActivityEvent[];
   messages: ChatMessage[];
   packet: CaseResultPacket;
   running: boolean;
+  status: MedicationSnapshot["status"];
 }) {
-  const visibleMessages = messages.filter(isPatientVisibleMessage);
   const hasResult =
     packet.status === "ready" ||
     packet.best_route != null ||
     packet.resources.length > 0 ||
     packet.drafts.length > 0;
+  const shouldShowResult = hasResult && !running;
+  const rows = buildTranscriptRows(activities, messages);
+  const lastActivity = activities.at(-1);
+  const endRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [
+    activities.length,
+    lastActivity?.status,
+    lastActivity?.title,
+    messages.length,
+    packet.resources.length,
+    packet.status,
+    running,
+  ]);
 
   return (
     <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto bg-[#1f1e1d] px-5 py-6 sm:px-7">
-      <div className="mx-auto max-w-[68rem]">
-        {hasResult ? (
-          <AgentAnswerText packet={packet} />
-        ) : visibleMessages.length ? (
-          <AgentMessageStream messages={visibleMessages} />
-        ) : (
-          <AgentWorkingText packet={packet} running={running} />
+      <div className="mx-auto grid max-w-[68rem] gap-4">
+        {rows.map((row) =>
+          row.kind === "message" ? (
+            <TranscriptMessageRow key={row.id} message={row.message} />
+          ) : (
+            <TranscriptStatusRow
+              completed={row.completed}
+              key={row.id}
+              pulse={false}
+              text={row.text}
+            />
+          ),
         )}
+        {running ? (
+          <TranscriptStatusRow
+            completed={false}
+            pulse
+            text={agentProgressText(activities, running, status)}
+          />
+        ) : null}
+        {!running && rows.length === 0 && !shouldShowResult ? (
+          <TranscriptStatusRow
+            completed={status === "ready"}
+            pulse={false}
+            text={agentProgressText(activities, running, status)}
+          />
+        ) : null}
+        {shouldShowResult ? (
+          <section className="border-l-2 border-[#ef6844] pl-4">
+            <AgentAnswerText packet={packet} />
+          </section>
+        ) : null}
+        <div ref={endRef} />
       </div>
     </article>
+  );
+}
+
+type TranscriptRow =
+  | {
+      completed: boolean;
+      id: string;
+      kind: "status";
+      sort: number;
+      text: string;
+    }
+  | {
+      id: string;
+      kind: "message";
+      message: ChatMessage;
+      sort: number;
+    };
+
+function buildTranscriptRows(
+  activities: ActivityEvent[],
+  messages: ChatMessage[],
+): TranscriptRow[] {
+  const rows: TranscriptRow[] = [
+    ...activities.map((activity, index) => ({
+      completed: activity.status === "completed",
+      id: `activity-${activity.id}`,
+      kind: "status" as const,
+      sort: dateSort(activity.createdAt, index),
+      text: friendlyActivityText(activity),
+    })),
+    ...messages.filter(isPatientVisibleMessage).map((message, index) => ({
+      id: `message-${message.id}`,
+      kind: "message" as const,
+      message,
+      sort: dateSort(message.createdAt, activities.length + index),
+    })),
+  ].sort((left, right) => left.sort - right.sort);
+
+  return rows.filter((row, index) => {
+    const previous = rows[index - 1];
+    return !(
+      row.kind === "status" &&
+      previous?.kind === "status" &&
+      previous.text === row.text
+    );
+  });
+}
+
+function dateSort(value: string | null | undefined, fallback: number): number {
+  const parsed = value ? Date.parse(value) : Number.NaN;
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function TranscriptStatusRow({
+  completed,
+  pulse,
+  text,
+}: {
+  completed: boolean;
+  pulse: boolean;
+  text: string;
+}) {
+  return (
+    <section className="ui-sans flex items-start gap-3 text-sm leading-7 text-[#ded8d0]">
+      <span
+        className={`mt-2.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+          pulse ? "animate-pulse bg-[#ef6844]" : completed ? "bg-[#6edc96]" : "bg-[#c7c0b8]"
+        }`}
+      />
+      <p className={pulse ? "animate-pulse" : ""}>{text}</p>
+    </section>
+  );
+}
+
+function TranscriptMessageRow({ message }: { message: ChatMessage }) {
+  const user = message.role === "user";
+  return (
+    <section
+      className={`ui-sans max-w-[54rem] text-sm leading-7 ${
+        user
+          ? "ml-auto border border-[#ef6844]/40 bg-[#302824] px-4 py-3 text-[#f7f2ec]"
+          : "whitespace-pre-wrap text-[#ded8d0]"
+      }`}
+    >
+      {formatChatMessage(message)}
+    </section>
   );
 }
 
@@ -619,21 +727,6 @@ function isPatientVisibleMessage(message: ChatMessage): boolean {
     return false;
   }
   return true;
-}
-
-function AgentMessageStream({ messages }: { messages: ChatMessage[] }) {
-  return (
-    <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
-      {messages.map((message) => (
-        <p
-          className={message.role === "user" ? "text-[#f7f2ec]" : "whitespace-pre-wrap"}
-          key={message.id}
-        >
-          {formatChatMessage(message)}
-        </p>
-      ))}
-    </div>
-  );
 }
 
 function formatChatMessage(message: ChatMessage): string {
@@ -667,30 +760,6 @@ function patientFriendlyQuestion(question: string): string {
     .replace(/\bQL\b/g, "quantity limit")
     .replace(/manufacturer copay assistance/gi, "manufacturer copay card")
     .replace(/eligibility/gi, "whether you qualify");
-}
-
-function AgentWorkingText({
-  packet,
-  running,
-}: {
-  packet: CaseResultPacket;
-  running: boolean;
-}) {
-  const medication = packet.case.medication || "this medication";
-  const quotedPrice =
-    packet.costs.quoted_price.cents > 0
-      ? ` The current quote is ${packet.costs.quoted_price.formatted}.`
-      : "";
-
-  return (
-    <div className="ui-sans text-sm leading-7 text-[#ded8d0]">
-      <p>
-        {running
-          ? `Checking ${medication} coverage, pricing routes, support programs, and pharmacy options.${quotedPrice}`
-          : `Ready to continue the ${medication} review.`}
-      </p>
-    </div>
-  );
 }
 
 function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
