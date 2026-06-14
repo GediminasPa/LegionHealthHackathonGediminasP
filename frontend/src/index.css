@@ -270,10 +270,12 @@
   .connection-marquee-heading {
     margin: 0 0 0.85rem;
     color: #f7f2ec;
-    font-size: 1rem;
+    font-family:
+      Arial, Helvetica, "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(1rem, 1.35vw, 1.28rem);
     font-weight: 700;
-    line-height: 1.35;
-    letter-spacing: -0.01em;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
   }
 
   .connection-marquee {
@@ -281,36 +283,38 @@
     min-width: 0;
     overflow: hidden;
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    pointer-events: none;
   }
 
   .connection-marquee-track {
     display: flex;
     width: max-content;
-    gap: 1.35rem;
-    animation: connection-marquee 42s linear infinite;
-  }
-
-  .connection-marquee:hover .connection-marquee-track {
-    animation-play-state: paused;
+    gap: 1rem;
+    animation: connection-marquee 46s linear infinite;
+    animation-play-state: running;
+    will-change: transform;
   }
 
   .connection-logo-tile {
     display: inline-flex;
-    height: 5.8rem;
-    width: 7rem;
+    height: 5.55rem;
+    width: 8.65rem;
     flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.48rem;
+    gap: 0.5rem;
     border: 0;
     background: transparent;
     text-decoration: none;
     outline: none;
+    opacity: 0.94;
+    pointer-events: auto;
   }
 
   .connection-logo-tile:hover {
     background: transparent;
+    opacity: 1;
   }
 
   .connection-logo-tile:focus-visible {
@@ -344,15 +348,16 @@
 
   .connection-logo-name {
     display: -webkit-box;
-    max-width: 6.35rem;
-    min-height: 1.85rem;
+    max-width: 7.8rem;
+    min-height: 1.65rem;
     overflow: hidden;
-    color: #c7c0b8;
+    color: #d8d2cc;
     font-family:
-      "SFMono-Regular", "Roboto Mono", "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
-    font-size: 0.66rem;
-    font-weight: 700;
-    line-height: 0.92rem;
+      Arial, Helvetica, "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 0.96rem;
+    letter-spacing: 0;
     text-align: center;
     text-overflow: ellipsis;
     -webkit-box-orient: vertical;
