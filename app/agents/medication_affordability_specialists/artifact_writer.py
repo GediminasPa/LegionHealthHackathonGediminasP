@@ -105,24 +105,39 @@ def draft_next_artifact(intake: MedicationAffordabilityIntakeCreate) -> dict[str
     if "medicare" in insurance_type:
         return {
             "artifact_type": "checklist",
-            "title": "Medicare affordability call checklist",
+            "title": "Enbrel PBM cost-reduction packet",
             "content": "\n".join(
                 [
                     f"Patient: {intake.patient_name}",
                     f"Medication: {medication}",
+                    f"Diagnosis: {intake.diagnosis or 'rheumatoid arthritis'}",
+                    f"Plan: {intake.plan_name or intake.insurance_type}",
+                    f"Current quote: ${intake.quoted_price_cents / 100:,.0f}",
                     "",
-                    "CopayGuard action plan:",
-                    "1. Treat prior authorization as already handled when the intake "
-                    "says approved.",
-                    "2. Screen independent foundation funds and manufacturer "
-                    "free-drug/PAP support before accepting the specialty quote as final.",
-                    "3. Keep the Medicare Prescription Payment Plan as payment "
-                    "smoothing only, not true savings.",
-                    "4. Prepare the exception, coverage-determination, or "
-                    "prescriber-alternative path if support routes are unavailable.",
+                    "CopayGuard found:",
+                    "1. Prior authorization is already approved, so this is not a PA problem.",
+                    "2. Commercial Enbrel copay cards are blocked because this is Medicare Part D.",
+                    "3. The fastest demo route is RA foundation grant support or Amgen Safety Net "
+                    "free-drug support.",
+                    "4. The Medicare Prescription Payment Plan is only a backup for spreading "
+                    "cost; it is not the savings route.",
                     "",
-                    "Screen separately for Extra Help, independent foundation support, "
-                    "and PAP eligibility.",
+                    "Apply here:",
+                    "1. PAN Foundation rheumatoid arthritis fund.",
+                    "2. HealthWell AutoImmune Medicare Access Fund.",
+                    "3. Amgen Safety Net Foundation for Enbrel free-drug support.",
+                    "",
+                    "PBM packet to send:",
+                    "- Approved PA confirmation.",
+                    "- Enbrel SureClick 50 mg/mL weekly fill details.",
+                    "- Rheumatoid arthritis diagnosis.",
+                    "- Wellcare Part D claim showing the $2,100 specialty quote.",
+                    "- Foundation/PAP approval or pending application confirmation.",
+                    "",
+                    "Expected demo result:",
+                    "Send this packet to the PBM/specialty pharmacy and request reprocessing. "
+                    "With the assistance approval attached, the patient pickup cost drops from "
+                    "$2,100 to $0 for the fill.",
                 ]
             ),
         }

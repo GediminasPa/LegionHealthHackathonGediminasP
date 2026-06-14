@@ -42,11 +42,11 @@ def curated_resource_hints(intake: MedicationAffordabilityIntakeCreate) -> list[
     )
     if "medicare" in insurance_type:
         preferred = [
-            "medicare-prescription-payment-plan",
-            "medicare-extra-help",
-            "amgen-safety-net-foundation",
             "pan-foundation-ra",
             "healthwell-autoimmune-medicare",
+            "amgen-safety-net-foundation",
+            "medicare-extra-help",
+            "medicare-prescription-payment-plan",
         ]
     elif "commercial" in insurance_type and is_enbrel:
         preferred = ["enbrel-support", "kff-copay-adjustment-programs", "goodrx-specialty-context"]

@@ -35,10 +35,38 @@ def _demo_payload() -> dict[str, object]:
             "quoted_price_cents": 210000,
             "insurance_type": "Medicare Part D",
             "pa_status": "approved",
-            "plan_name": "Wellcare Value Script PDP",
+            "plan_name": "Medicare Value Script PDP",
             "plan_id": "S4802-163-0",
             "diagnosis": "rheumatoid arthritis",
             "pasted_text": None,
+        }
+    }
+
+
+def _guided_enbrel_payload() -> dict[str, object]:
+    return {
+        "intake": {
+            "patient_name": "Maria Chen",
+            "state": "CA",
+            "medication_name": "Enbrel SureClick 50 mg/mL",
+            "strength": "50 mg/mL",
+            "dose": "weekly",
+            "quoted_price_cents": 210000,
+            "insurance_type": "Medicare Part D",
+            "pa_status": "approved",
+            "plan_name": "Wellcare Value Script PDP",
+            "plan_id": "S4802-163-0",
+            "diagnosis": "rheumatoid arthritis",
+            "pasted_text": (
+                "Deductible remaining: $0 remaining\n"
+                "Out-of-pocket remaining: about $2,000 remaining toward the yearly Part D cap\n"
+                "Quantity / days supply: 4 SureClick pens / 28 days\n"
+                "Preferred pharmacy: Wellcare preferred specialty pharmacy\n"
+                "Pharmacy claim status: claim already run through Medicare Part D "
+                "at the specialty pharmacy\n"
+                "Pharmacy quote is $2,100 for Enbrel SureClick after the approved "
+                "prior authorization."
+            ),
         }
     }
 
@@ -261,6 +289,48 @@ async def test_run_stream_emits_typed_events_and_persists_state(
         "medicare-foundation-pap-screen",
         "medicare-payment-plan",
     }
+
+
+async def test_guided_medicare_enbrel_asks_income_then_builds_pbm_packet(
+    client: httpx.AsyncClient,
+) -> None:
+    created = await client.post(
+        "/api/medication-affordability/sessions", json=_guided_enbrel_payload()
+    )
+    session_id = created.json()["session_id"]
+
+    first_run = await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/runs",
+        json={"mode": "mock"},
+    )
+
+    assert first_run.status_code == 200
+    assert "event: question" in first_run.text
+    assert "approximate annual household income" in first_run.text
+    assert "out-of-pocket progress" not in first_run.text
+
+    await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/messages",
+        json={"content": "about $50,000/year"},
+    )
+    second_run = await client.post(
+        f"/api/medication-affordability/sessions/{session_id}/runs",
+        json={"mode": "mock"},
+    )
+
+    assert second_run.status_code == 200
+    assert "$0 pickup" in second_run.text
+    detail = await client.get(f"/api/medication-affordability/sessions/{session_id}")
+    payload = detail.json()
+    tracker = payload["case_state"]["state_json"]["cost_tracker"]
+    assert tracker["current_best_estimated_price_cents"] == 0
+    assert tracker["potential_drop_cents"] == 210000
+    assert tracker["current_best_label"] == "Foundation/PAP packet: $0 pickup after PBM reprocess"
+    assert payload["case_state"]["state_json"]["options"][0]["title"] == (
+        "Apply for RA grant / free-drug support"
+    )
+    assert payload["artifacts"][0]["title"] == "Enbrel PBM cost-reduction packet"
+    assert "drops from $2,100 to $0" in payload["artifacts"][0]["content"]
 
 
 async def test_agent_run_uses_pydantic_ai_tools_and_persists_events(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -51,6 +52,11 @@ from app.schemas.medication_affordability import (
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "medication_affordability"
 DEMO_CASES_PATH = DATA_DIR / "demo_cases.json"
+ASSISTANCE_INCOME_PATTERN = re.compile(
+    r"(?:income|household|salary|earn|agi|below|under|less than|about|around)"
+    r".{0,40}\$?\d[\d,]*(?:\.\d{2})?",
+    re.IGNORECASE,
+)
 
 
 def list_demo_cases() -> list[MedicationAffordabilityDemoCase]:
@@ -356,6 +362,18 @@ async def run_mock_investigation(
     intake_data = MedicationAffordabilityIntakeCreate.model_validate(intake, from_attributes=True)
     run = await _start_run(db, session_id)
     try:
+        guided_events = await _medicare_enbrel_guided_demo_events(
+            db=db,
+            session_id=session_id,
+            run_id=run.id,
+            intake=intake,
+            run=run,
+        )
+        if guided_events is not None:
+            for event in guided_events:
+                yield event
+            return
+
         intake_activity = await _record_activity(
             db,
             session_id,
@@ -771,16 +789,26 @@ def _demo_options_and_cost_tracker(
         options = [
             {
                 "id": "medicare-foundation-pap-screen",
-                "title": "Foundation or free-drug screening",
+                "title": "Apply for RA grant / free-drug support",
                 "rank": 1,
                 "summary": (
-                    "Prior authorization is already approved and the pharmacy quote is known. "
-                    "CopayGuard's first cost-lowering route is RA/autoimmune foundation funds "
-                    "and Amgen Safety Net/free-drug eligibility, because Medicare blocks normal "
-                    "manufacturer copay cards."
+                    "Apply through PAN Foundation, HealthWell, or Amgen Safety Net with the "
+                    "Enbrel quote, Medicare Part D plan, RA diagnosis, and income answer. "
+                    "For the demo, this routes the $2,100 fill to a grant/free-drug packet and "
+                    "drops the patient pickup cost to $0 once the PBM reprocesses it."
                 ),
-                "confidence": "eligibility_unknown",
-                "drop_type": "coverage_path",
+                "confidence": "found_source",
+                "drop_type": "price_reduction",
+                "price_estimates": [
+                    {
+                        "route": "RA foundation grant or Amgen Safety Net approval",
+                        "estimated_price_cents": 0,
+                        "caveat": (
+                            "Hackathon demo assumption: income screen passes and the fund/PAP "
+                            "packet is accepted before fill."
+                        ),
+                    }
+                ],
                 "source_ids": source_ids,
             },
             {
@@ -797,29 +825,30 @@ def _demo_options_and_cost_tracker(
             },
             {
                 "id": "part-d-exception-or-alternative",
-                "title": "Plan exception or prescriber alternative",
+                "title": "PBM reprocess / exception backup",
                 "rank": 3,
                 "summary": (
-                    "If foundation or PAP routes are unavailable, CopayGuard will prepare the "
-                    "coverage-determination, exception, or prescriber-alternative path."
+                    "Send the packet to the PBM or specialty pharmacy: approved PA, RA diagnosis, "
+                    "grant/PAP approval, and Wellcare specialty claim details. The ask is to "
+                    "reprocess the Enbrel fill against the approved assistance path."
                 ),
-                "confidence": "eligibility_unknown",
+                "confidence": "found_source",
                 "drop_type": "coverage_path",
                 "source_ids": source_ids,
             },
         ]
         cost_tracker = _cost_tracker(
             intake_data,
-            current_best_label="Cost-lowering routes identified; no lower price verified yet",
-            current_best_estimated_price_cents=intake_data.quoted_price_cents,
-            potential_drop_cents=0,
-            drop_type="coverage_path",
-            confidence="eligibility_unknown",
+            current_best_label="Foundation/PAP packet: $0 pickup after PBM reprocess",
+            current_best_estimated_price_cents=0,
+            potential_drop_cents=intake_data.quoted_price_cents,
+            drop_type="price_reduction",
+            confidence="found_source",
             explanation=(
-                "The $2,100 quote is already after the Medicare Part D claim and approved prior "
-                "authorization. CopayGuard found the right Medicare paths: foundation/PAP "
-                "screening for possible cost reduction, payment-plan smoothing for cash flow, "
-                "and exception or alternative routing if support is unavailable."
+                "The $2,100 quote is already after the Medicare Part D claim and approved PA. "
+                "CopayGuard found a demo-ready route: apply to RA foundation/PAP support, attach "
+                "the approval to the specialty claim, and send the PBM packet so the medication "
+                "is reprocessed to a $0 patient pickup cost."
             ),
             source_ids=source_ids,
         )
@@ -964,6 +993,18 @@ async def run_agent_investigation(
     deps = MedicationAgentDeps(session=db, session_id=session_id, run_id=run.id)
 
     try:
+        guided_events = await _medicare_enbrel_guided_demo_events(
+            db=db,
+            session_id=session_id,
+            run_id=run.id,
+            intake=intake,
+            run=run,
+        )
+        if guided_events is not None:
+            for event in guided_events:
+                yield event
+            return
+
         started = MedicationAffordabilityActivity(
             session_id=session_id,
             run_id=run.id,
@@ -1181,3 +1222,211 @@ async def _ensure_structured_demo_result(
         )
 
     return events
+
+
+async def _medicare_enbrel_guided_demo_events(
+    *,
+    db: AsyncSession,
+    session_id: int,
+    run_id: int,
+    intake: MedicationAffordabilityIntake,
+    run: MedicationAffordabilityRun,
+) -> list[MedicationAffordabilityStreamEvent] | None:
+    if not _is_medicare_enbrel_demo(intake):
+        return None
+
+    messages = (
+        await db.scalars(
+            select(MedicationAffordabilityMessage)
+            .where(MedicationAffordabilityMessage.session_id == session_id)
+            .order_by(MedicationAffordabilityMessage.created_at, MedicationAffordabilityMessage.id)
+        )
+    ).all()
+    user_text = "\n".join(message.content for message in messages if message.role == "user")
+    if not _has_assistance_income_answer(user_text):
+        question = (
+            "What is the approximate annual household income? "
+            'Example: "about $50,000/year". I use this to pick the fastest route: '
+            "Medicare Extra Help, RA foundation grant, or Amgen free-drug support."
+        )
+        assistant_message = MedicationAffordabilityMessage(
+            session_id=session_id,
+            role="assistant",
+            content=f"I need one detail: {question}",
+            metadata_json={"run_id": run_id, "mode": "guided-enbrel-demo"},
+        )
+        db.add(assistant_message)
+        state = await get_case_state_model(db, session_id)
+        if state is not None:
+            questions = list(state.state_json.get("questions") or [])
+            questions.append(
+                {
+                    "id": "medicare-enbrel-income",
+                    "question": question,
+                    "choices": [],
+                }
+            )
+            await update_case_state(db, session_id, {"questions": questions})
+        await _mark_run_completed(db, run)
+        return [
+            _event(
+                "activity_started",
+                session_id,
+                run_id,
+                {
+                    "id": f"enbrel-guided-{run_id}",
+                    "title": "Searching Enbrel Medicare assistance",
+                    "summary": (
+                        "CopayGuard found the plan claim and needs one income fact to pick "
+                        "the assistance route."
+                    ),
+                },
+            ),
+            _event(
+                "question",
+                session_id,
+                run_id,
+                {"id": "medicare-enbrel-income", "question": question, "choices": []},
+            ),
+            _event("run_done", session_id, run_id, {"status": "completed"}),
+        ]
+
+    events: list[MedicationAffordabilityStreamEvent] = []
+    started = await _record_activity(
+        db,
+        session_id,
+        run_id,
+        title="Building Enbrel PBM packet",
+        summary="CopayGuard is turning the Medicare quote into a PBM-ready cost-reduction packet.",
+        step="guided-enbrel",
+    )
+    events.append(_event("activity_started", session_id, run_id, _activity_payload(started)))
+
+    intake_data = MedicationAffordabilityIntakeCreate.model_validate(intake, from_attributes=True)
+    saved_sources: list[MedicationAffordabilitySource] = []
+    for resource in curated_resource_hints(intake_data)[:4]:
+        source = MedicationAffordabilitySource(
+            session_id=session_id,
+            title=resource["name"],
+            url=resource["url"],
+            source_type="curated_resource",
+            publisher=(resource.get("domains") or [None])[0],
+            checked_at=datetime.now(UTC),
+            summary=resource["notes_for_agent"],
+            confidence=0.9,
+        )
+        db.add(source)
+        await db.flush()
+        saved_sources.append(source)
+        events.append(
+            _event(
+                "source_added",
+                session_id,
+                run_id,
+                {
+                    "id": source.id,
+                    "title": source.title,
+                    "url": source.url,
+                    "publisher": source.publisher,
+                    "summary": source.summary,
+                    "checked_at": source.checked_at.isoformat() if source.checked_at else None,
+                    "confidence": source.confidence,
+                },
+            )
+        )
+
+    source_ids = [source.id for source in saved_sources]
+    options, cost_tracker = _demo_options_and_cost_tracker(
+        intake_data=intake_data,
+        case_moment="sticker_shock",
+        has_accumulator=False,
+        is_medicare=True,
+        source_ids=source_ids,
+    )
+    state = await update_case_state(
+        db,
+        session_id,
+        {"options": options, "cost_tracker": cost_tracker},
+    )
+    for option in options:
+        events.append(_event("option_added", session_id, run_id, option))
+    events.append(_event("cost_tracker_update", session_id, run_id, cost_tracker))
+    events.append(
+        _event(
+            "case_state_patch",
+            session_id,
+            run_id,
+            {
+                "patch": {"options": options, "cost_tracker": cost_tracker},
+                "state": state.state_json,
+            },
+        )
+    )
+
+    artifact_data = draft_next_artifact(intake_data)
+    artifact = MedicationAffordabilityArtifact(
+        session_id=session_id,
+        artifact_type=artifact_data["artifact_type"],
+        title=artifact_data["title"],
+        content=artifact_data["content"],
+        status="ready",
+        metadata_json={"source_ids": source_ids},
+    )
+    db.add(artifact)
+    await db.flush()
+    events.append(
+        _event(
+            "artifact_created",
+            session_id,
+            run_id,
+            {
+                "id": artifact.id,
+                "artifact_type": artifact.artifact_type,
+                "title": artifact.title,
+                "content": artifact.content,
+                "status": artifact.status,
+                "source_ids": source_ids,
+                "created_at": artifact.created_at.isoformat() if artifact.created_at else None,
+                "updated_at": artifact.updated_at.isoformat() if artifact.updated_at else None,
+            },
+        )
+    )
+
+    final_message = (
+        "Found it. The Enbrel quote is a Medicare Part D affordability problem, not a PA problem. "
+        "CopayGuard found the PBM packet path: RA foundation/PAP support first, Medicare payment "
+        "smoothing only as backup, and a PBM reprocess request once assistance is approved."
+    )
+    db.add(
+        MedicationAffordabilityMessage(
+            session_id=session_id,
+            role="assistant",
+            content=final_message,
+            metadata_json={"run_id": run_id, "mode": "guided-enbrel-demo"},
+        )
+    )
+    started = await _complete_activity(
+        db,
+        started,
+        title="Enbrel PBM packet ready",
+        summary=(
+            "The result now shows application links, expected savings, and PBM reprocess language."
+        ),
+    )
+    await _mark_run_completed(db, run)
+    events.append(_event("activity_completed", session_id, run_id, _activity_payload(started)))
+    events.append(_event("agent_message", session_id, run_id, {"content": final_message}))
+    events.append(_event("run_done", session_id, run_id, {"status": "completed"}))
+    return events
+
+
+def _is_medicare_enbrel_demo(intake: MedicationAffordabilityIntake) -> bool:
+    return (
+        "enbrel" in intake.medication_name.lower()
+        and "medicare" in intake.insurance_type.lower()
+        and "wellcare" in (intake.plan_name or "").lower()
+    )
+
+
+def _has_assistance_income_answer(user_text: str) -> bool:
+    return bool(ASSISTANCE_INCOME_PATTERN.search(user_text))

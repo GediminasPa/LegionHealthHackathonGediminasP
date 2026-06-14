@@ -974,8 +974,7 @@ function patientFacingSummary(packet: CaseResultPacket): string {
   if (packet.best_route) {
     if (isMedicareCase(packet)) {
       return (
-        "Prior authorization is already handled, so this is a Medicare cost-routing case now. " +
-        "I found the cost-lowering routes and kept payment smoothing separate from real savings."
+        "Prior authorization is already handled. I found the cost-reduction packet: RA foundation/PAP support first, then PBM reprocessing so the specialty pharmacy can rerun the Enbrel claim."
       );
     }
     if (isAccumulatorCase(packet)) {
@@ -1017,7 +1016,7 @@ function primaryNextStep(packet: CaseResultPacket): string {
     return agentOwnedStep(packet.next_steps[0]);
   }
   if (isMedicareCase(packet)) {
-    return "I’ll rank foundation/PAP support first and keep the Medicare Prescription Payment Plan labeled as payment smoothing, not savings.";
+    return "Send the packet to the PBM/specialty pharmacy: approved PA, RA diagnosis, Wellcare claim details, and foundation/PAP approval. The demo result is a $2,100 quote reduced to $0 at pickup.";
   }
   return "I’ll check manufacturer support, cash prices, and plan-processing issues first; paste pharmacy text only if you have it.";
 }
@@ -1030,12 +1029,10 @@ function nextStepsForPacket(packet: CaseResultPacket): string[] {
 
   if (isMedicareCase(packet)) {
     return [
-      isPaApprovedCase(packet)
-        ? "I’ll treat prior authorization as already handled and focus on lowering the Medicare specialty cost."
-        : "I’ll check whether a coverage restriction is causing the quote before ranking cost routes.",
-      "I’ll screen foundation funds and manufacturer free-drug/PAP support before treating the quote as final.",
-      "I’ll keep the Medicare Prescription Payment Plan as cash-flow smoothing only, not a price reduction.",
-      "If support routes do not work, I’ll prepare the exception, coverage-determination, or prescriber-alternative path.",
+      "CopayGuard found the quote is not a PA issue: PA is already approved.",
+      "CopayGuard found Medicare blocks the normal Enbrel commercial copay card route.",
+      "CopayGuard found the right application routes: PAN Foundation RA, HealthWell AutoImmune Medicare Access, and Amgen Safety Net.",
+      "Send the assistance approval plus claim details to the PBM/specialty pharmacy for reprocessing; demo result is $2,100 to $0.",
     ];
   }
 
