@@ -6,6 +6,7 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Shuffle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
@@ -36,6 +37,26 @@ type ScenarioOption = {
   body: string;
   checks: string[];
   submitNote: string;
+};
+
+type RandomCase = {
+  intake: MedicationIntakeData;
+  scenarioId: ScenarioId;
+  caseReason: string;
+};
+
+type RandomMedicationTemplate = {
+  medicationName: string;
+  strength: string;
+  dose: string;
+  diagnosis: string;
+  scenarioId: ScenarioId;
+  quotedPriceCents: [number, number] | 0;
+  insuranceType: string;
+  paStatus: PaStatus;
+  planNames: string[];
+  pastedText: string;
+  caseReason: string;
 };
 
 const SCENARIO_OPTIONS: ScenarioOption[] = [
@@ -80,6 +101,112 @@ const HEALTHCARE_SOURCE_CATEGORIES = new Set([
   "Appeals and execution sources",
 ]);
 
+const RANDOM_PATIENT_NAMES = [
+  "Maya Iqbal",
+  "Theo Ramirez",
+  "Elena Park",
+  "Noah Williams",
+  "Priya Shah",
+  "Marcus Johnson",
+  "Iris Thompson",
+  "Samir Haddad",
+];
+
+const RANDOM_STATES = ["CA", "TX", "FL", "NY", "IL", "PA", "AZ", "WA"];
+
+const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
+  {
+    medicationName: "Humira Pen",
+    strength: "40 mg/0.4 mL",
+    dose: "every other week",
+    diagnosis: "psoriatic arthritis",
+    scenarioId: "coupon_behavior",
+    quotedPriceCents: [120000, 260000],
+    insuranceType: "Commercial",
+    paStatus: "approved",
+    planNames: ["Employer PPO specialty benefit", "Commercial high-deductible plan"],
+    pastedText:
+      "Specialty copay assistance may not apply to deductible or out-of-pocket maximum. Patient saw a low first-fill charge but is worried the accumulator will reset progress later.",
+    caseReason:
+      "A copay card may help today, but the patient needs accumulator and maximizer risk checked before relying on it.",
+  },
+  {
+    medicationName: "Eliquis",
+    strength: "5 mg",
+    dose: "twice daily",
+    diagnosis: "atrial fibrillation",
+    scenarioId: "sticker_shock",
+    quotedPriceCents: [42000, 69000],
+    insuranceType: "Medicare Part D",
+    paStatus: "approved",
+    planNames: ["Aetna SilverScript SmartSaver", "Humana Basic Rx Plan"],
+    pastedText:
+      "Pharmacy quote jumped after the deductible stage. Patient wants to know whether Extra Help, Medicare Prescription Payment Plan, or a formulary alternative should be checked.",
+    caseReason:
+      "The quote is higher than expected and the patient needs Medicare-correct affordability routes ranked.",
+  },
+  {
+    medicationName: "Vyvanse",
+    strength: "30 mg",
+    dose: "once daily",
+    diagnosis: "ADHD",
+    scenarioId: "before_fill",
+    quotedPriceCents: 0,
+    insuranceType: "Commercial",
+    paStatus: "unknown",
+    planNames: ["Commercial PPO pharmacy benefit", "High-deductible employer plan"],
+    pastedText:
+      "Patient has not filled yet. Check whether generic lisdexamfetamine, preferred stimulant alternatives, prior authorization, and cash pricing should be reviewed before pickup.",
+    caseReason:
+      "The patient wants likely cost blockers and covered alternatives checked before the first pharmacy run.",
+  },
+  {
+    medicationName: "Skyrizi Pen",
+    strength: "150 mg/mL",
+    dose: "maintenance dose",
+    diagnosis: "plaque psoriasis",
+    scenarioId: "sticker_shock",
+    quotedPriceCents: [160000, 340000],
+    insuranceType: "Commercial",
+    paStatus: "pending",
+    planNames: ["Employer PPO specialty pharmacy benefit", "Commercial specialty tier plan"],
+    pastedText:
+      "Specialty pharmacy quoted a high first-fill amount while PA status is still unclear. Patient wants coverage, bridge support, manufacturer support, and alternatives checked.",
+    caseReason:
+      "The patient has a high specialty quote and needs coverage status, cash impact, and assistance routes separated.",
+  },
+  {
+    medicationName: "Mounjaro",
+    strength: "5 mg/0.5 mL",
+    dose: "weekly",
+    diagnosis: "type 2 diabetes",
+    scenarioId: "before_fill",
+    quotedPriceCents: 0,
+    insuranceType: "Commercial",
+    paStatus: "unknown",
+    planNames: ["Commercial PPO pharmacy benefit", "Employer pharmacy plan"],
+    pastedText:
+      "Prescription was sent before the first fill. Check indication fit, PA risk, step therapy, savings eligibility, and clinically appropriate covered alternatives.",
+    caseReason:
+      "The patient wants likely coverage blockers and savings routes checked before pickup.",
+  },
+  {
+    medicationName: "Xarelto",
+    strength: "20 mg",
+    dose: "once daily",
+    diagnosis: "deep vein thrombosis",
+    scenarioId: "coupon_behavior",
+    quotedPriceCents: [38000, 74000],
+    insuranceType: "Commercial",
+    paStatus: "approved",
+    planNames: ["Employer HDHP with copay support language", "Commercial PPO pharmacy benefit"],
+    pastedText:
+      "Plan materials mention that manufacturer assistance may be excluded from deductible credit. Patient wants to avoid a surprise after using a copay card.",
+    caseReason:
+      "The patient needs to know whether manufacturer assistance will count toward deductible and out-of-pocket progress.",
+  },
+];
+
 export default function MedicationIntake({
   initialIntake,
   onSessionStarted,
@@ -120,7 +247,16 @@ export default function MedicationIntake({
   }
 
   function update<K extends keyof MedicationIntakeData>(key: K, value: MedicationIntakeData[K]) {
+    setSelectedCaseId(null);
     setIntake((current) => ({ ...current, [key]: value }));
+  }
+
+  function applyRandomCase() {
+    const randomCase = createRandomCase();
+    setSelectedCaseId(null);
+    setSelectedScenarioId(randomCase.scenarioId);
+    setCaseReason(randomCase.caseReason);
+    setIntake(randomCase.intake);
   }
 
   const selectedScenario =
@@ -174,6 +310,7 @@ export default function MedicationIntake({
             <DemoCasePicker
               demoCases={demoCases}
               selectedCaseId={selectedCaseId}
+              onRandom={applyRandomCase}
               onSelect={(demo) => {
                 const scenarioId = inferScenarioId(demo.intake);
                 setSelectedCaseId(demo.id);
@@ -340,10 +477,12 @@ export default function MedicationIntake({
                 value={caseReason}
                 selectedScenarioId={selectedScenarioId}
                 onChange={(value) => {
+                  setSelectedCaseId(null);
                   setCaseReason(value);
                   setSelectedScenarioId(inferScenarioId({ ...intake, pastedText: value }));
                 }}
                 onUseExample={(option) => {
+                  setSelectedCaseId(null);
                   setSelectedScenarioId(option.id);
                   setCaseReason(option.body);
                 }}
@@ -424,7 +563,7 @@ function HealthcareLogoMarquee({ resources }: { resources: MedicationResourceCon
         className="connection-marquee-heading"
         id="connected-healthcare-sources"
       >
-        Healthcare sources CopayGuard connects to
+        Sources CopayGuard checks
       </h2>
       <div className="connection-marquee">
         <div className="connection-marquee-track">
@@ -550,10 +689,12 @@ function ReasonDetails({
 function DemoCasePicker({
   demoCases,
   selectedCaseId,
+  onRandom,
   onSelect,
 }: {
   demoCases: DemoCase[];
   selectedCaseId: string | null;
+  onRandom: () => void;
   onSelect: (demo: DemoCase) => void;
 }) {
   const demoChoices = SCENARIO_OPTIONS.map((scenario) => {
@@ -569,12 +710,22 @@ function DemoCasePicker({
             Try a demo case
           </h2>
           <p className="ui-sans mt-3 max-w-[42rem] text-sm leading-6 text-[#c7c0b8]">
-            Pick one path to pre-fill the case, then edit any field before starting the review.
+            Pick a demo path or generate a synthetic case. Edit any field before starting the review.
           </p>
         </div>
-        <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          3 paths
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="button-press ui-sans inline-flex min-h-10 items-center gap-2 border border-white/12 bg-[#1f1e1d] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#f7f2ec] hover:border-[#ef6844]/70"
+            type="button"
+            onClick={onRandom}
+          >
+            <Shuffle size={15} />
+            Random case
+          </button>
+          <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+            3 demos
+          </span>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -630,6 +781,44 @@ function representativeDemoCase(demoCases: DemoCase[], scenarioId: ScenarioId) {
     demoCases.find((demo) => demo.id === PREFERRED_DEMO_CASE_IDS[scenarioId]) ??
     demoCases.find((demo) => inferScenarioId(demo.intake) === scenarioId)
   );
+}
+
+function createRandomCase(): RandomCase {
+  const template = randomFrom(RANDOM_MEDICATION_TEMPLATES);
+  const quotedPriceCents =
+    template.quotedPriceCents === 0
+      ? 0
+      : randomCents(template.quotedPriceCents[0], template.quotedPriceCents[1]);
+  const intake: MedicationIntakeData = {
+    patientName: randomFrom(RANDOM_PATIENT_NAMES),
+    state: randomFrom(RANDOM_STATES),
+    medicationName: template.medicationName,
+    strength: template.strength,
+    dose: template.dose,
+    quotedPriceCents,
+    insuranceType: template.insuranceType,
+    paStatus: template.paStatus,
+    planName: randomFrom(template.planNames),
+    planId: "",
+    diagnosis: template.diagnosis,
+    pastedText: template.pastedText,
+  };
+
+  return {
+    intake,
+    scenarioId: template.scenarioId,
+    caseReason: template.caseReason,
+  };
+}
+
+function randomFrom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)] ?? items[0];
+}
+
+function randomCents(minCents: number, maxCents: number): number {
+  const minDollars = Math.ceil(minCents / 100);
+  const maxDollars = Math.floor(maxCents / 100);
+  return Math.floor(Math.random() * (maxDollars - minDollars + 1) + minDollars) * 100;
 }
 
 function ProductExplainer() {
