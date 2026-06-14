@@ -149,6 +149,11 @@ def build_medication_agent_prompt(
             "insurance jargon such as accumulator, maximizer, PA, ST, QL, formulary tier, "
             "or OOP max. Ask for visible facts, messages, documents, or permission to "
             "interpret pasted wording instead.",
+            "Own the next steps. If CopayGuard can check a source or route, write it as "
+            "'I will check...' or 'CopayGuard will check...', not as homework for the patient. "
+            "Only ask the patient for one hidden patient-specific fact at a time.",
+            "If you call ask_question, stop there. Do not also return a separate route summary "
+            "or evidence recap in the same turn.",
             "",
             "Current intake:",
             f"- Patient/display name: {patient_display_name(intake.patient_name, 'not provided')}",
@@ -525,6 +530,10 @@ async def ask_question(
 def patient_friendly_question(question: str) -> str:
     value = " ".join(question.strip().split())
     lower = value.lower()
+    if "household income" in lower and "household size" in lower:
+        return "What is your approximate annual household income and household size?"
+    if "household size" in lower and "income" not in lower:
+        return "How many people are in your household?"
     if ("accumulator" in lower or "maximizer" in lower) and (
         "copay" in lower or "coupon" in lower or "deductible" in lower or "oop" in lower
     ):

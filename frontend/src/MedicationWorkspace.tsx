@@ -817,6 +817,12 @@ function formatInlineMarkdown(text: string): string {
 function patientFriendlyQuestion(question: string): string {
   const value = question.trim().replace(/\s+/g, " ");
   const lower = value.toLowerCase();
+  if (lower.includes("household income") && lower.includes("household size")) {
+    return "What is your approximate annual household income and household size?";
+  }
+  if (lower.includes("household size") && !lower.includes("income")) {
+    return "How many people are in your household?";
+  }
   if (
     (lower.includes("accumulator") || lower.includes("maximizer")) &&
     (lower.includes("copay") ||
@@ -875,7 +881,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
       <p>Next: {nextStep}</p>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence links</h3>
+        <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence CopayGuard uses</h3>
         <div className="grid gap-1.5">
           {evidenceLinks.map((source) => (
             <a
@@ -898,7 +904,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-[#f7f2ec]">Next steps</h3>
+        <h3 className="text-sm font-semibold text-[#f7f2ec]">What CopayGuard will check</h3>
         <ol className="list-decimal space-y-1 pl-5">
           {nextSteps.map((step) => (
             <li key={step}>{step}</li>
@@ -951,43 +957,84 @@ function primaryNextStep(packet: CaseResultPacket): string {
     packet.next_steps.length &&
     !packet.next_steps[0].toLowerCase().startsWith("add the missing")
   ) {
-    return packet.next_steps[0];
+    return agentOwnedStep(packet.next_steps[0]);
   }
   if (isMedicareCase(packet)) {
-    return "I can check the public support routes first; paste the pharmacy text or plan message only if you want the answer to be more patient-specific.";
+    return "I’ll check public Medicare support routes first; paste pharmacy or plan text only if you want the answer to be more patient-specific.";
   }
-  return "I can check manufacturer support, cash prices, and plan-processing issues first; paste the pharmacy text only if you have it.";
+  return "I’ll check manufacturer support, cash prices, and plan-processing issues first; paste pharmacy text only if you have it.";
 }
 
 function nextStepsForPacket(packet: CaseResultPacket): string[] {
   const usefulPersistedSteps = packet.next_steps.filter(
     (step) => !step.toLowerCase().startsWith("add the missing"),
   );
-  if (usefulPersistedSteps.length) return usefulPersistedSteps;
+  if (usefulPersistedSteps.length) return usefulPersistedSteps.map(agentOwnedStep);
 
   if (isMedicareCase(packet)) {
     return [
-      "Check whether the quote is deductible, coverage-stage, or tier driven in the Part D plan.",
-      "Screen Extra Help, state assistance, independent foundations, and manufacturer PAP/free-drug routes.",
-      "Use the Medicare Prescription Payment Plan if the issue is timing of the payment rather than total cost.",
-      "Ask the prescriber or plan about a formulary exception or covered alternative if support routes do not work.",
+      "I’ll verify whether the quote is deductible, coverage-stage, or specialty-tier driven.",
+      "I’ll screen Medicare Extra Help, state assistance, foundation, and free-drug routes using public criteria first.",
+      "I’ll flag the Medicare Prescription Payment Plan only as payment smoothing, not a real price reduction.",
+      "If support routes do not work, I’ll prepare the plan or prescriber question for an exception or covered alternative.",
     ];
   }
 
   if (packet.costs.quoted_price.cents > 0) {
     return [
-      "Confirm the pharmacy ran the claim through the active insurance benefit.",
-      "Compare manufacturer support, cash discount pricing, and plan-preferred alternatives.",
-      "Check whether the deductible or out-of-pocket balance explains the quote before switching routes.",
-      "Use an appeal, exception, or prescriber alternative only if the benefit route stays unaffordable.",
+      "I’ll verify whether the pharmacy ran the claim through the active insurance benefit.",
+      "I’ll compare manufacturer support, cash discount pricing, and plan-preferred alternatives.",
+      "I’ll check whether deductible or out-of-pocket progress explains the quote before switching routes.",
+      "If the benefit route stays unaffordable, I’ll prepare the appeal, exception, or prescriber-alternative path.",
     ];
   }
 
   return [
-    "Check likely prior authorization, step therapy, quantity limit, and formulary tier blockers before pickup.",
-    "Compare covered alternatives and cash pricing before the first fill.",
-    "Confirm the pharmacy and quantity/day supply that will be used for the estimate.",
+    "I’ll check likely prior authorization, step therapy, quantity limit, and formulary-tier blockers before pickup.",
+    "I’ll compare covered alternatives and cash pricing before the first fill.",
+    "I’ll use the pharmacy, quantity, and day-supply details to tighten the estimate when available.",
   ];
+}
+
+function agentOwnedStep(step: string): string {
+  const value = step.trim().replace(/\s+/g, " ");
+  if (!value) return value;
+  const lower = value.toLowerCase();
+
+  if (
+    lower.startsWith("answer the follow-up") ||
+    lower.startsWith("paste ") ||
+    lower.startsWith("tell me ") ||
+    lower.startsWith("reply with ")
+  ) {
+    return value;
+  }
+
+  const replacements: Array<[RegExp, string]> = [
+    [/^check whether\b/i, "I’ll check whether"],
+    [/^check\b/i, "I’ll check"],
+    [/^screen\b/i, "I’ll screen"],
+    [/^compare\b/i, "I’ll compare"],
+    [/^confirm\b/i, "I’ll verify"],
+    [/^verify\b/i, "I’ll verify"],
+    [/^use\b/i, "I’ll use"],
+    [/^save\b/i, "I’ll save"],
+    [/^prepare\b/i, "I’ll prepare"],
+    [/^ask the prescriber or plan\b/i, "I’ll prepare the prescriber or plan question"],
+    [/^ask\b/i, "I’ll ask"],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(value)) {
+      return value.replace(pattern, replacement);
+    }
+  }
+
+  if (/^[A-Z]/.test(value) && !value.startsWith("I ") && !value.startsWith("I’ll ")) {
+    return `I’ll ${value.charAt(0).toLowerCase()}${value.slice(1)}`;
+  }
+
+  return value;
 }
 
 function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
@@ -1003,38 +1050,38 @@ function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
       {
         title: "Medicare Part D costs",
         url: "https://www.medicare.gov/drug-coverage-part-d/costs-for-medicare-drug-coverage",
-        summary: "Use this to explain deductible, cost-sharing, and out-of-pocket rules.",
-        status: "Verify",
+        summary: "CopayGuard uses this to explain deductible, cost-sharing, and out-of-pocket rules.",
+        status: "Reference",
       },
       {
         title: "Medicare Prescription Payment Plan",
         url: "https://www.medicare.gov/prescription-payment-plan",
         summary: "Can spread large Part D drug costs across the year; not a price reduction.",
-        status: "Check",
+        status: "Program",
       },
       {
         title: "Medicare Extra Help",
         url: "https://www.ssa.gov/medicare/part-d-extra-help",
-        summary: "Screen for low-income subsidy support if income/assets may qualify.",
-        status: "Screen",
+        summary: "CopayGuard screens low-income subsidy support if income/assets may qualify.",
+        status: "Program",
       },
       {
         title: "Manufacturer patient support",
         url: `https://www.google.com/search?q=${medicationQuery}+patient+assistance+program`,
         summary: "For Medicare, look for PAP/free-drug routes, not commercial copay cards.",
-        status: "Search",
+        status: "Search target",
       },
       {
         title: "NeedyMeds",
         url: "https://www.needymeds.org/",
-        summary: "Find patient assistance and foundation leads for the medication.",
-        status: "Search",
+        summary: "CopayGuard uses this for patient assistance and foundation leads.",
+        status: "Search target",
       },
       {
         title: "Medicine Assistance Tool",
         url: "https://www.medicineassistancetool.org/",
-        summary: "Search for patient assistance programs that may apply.",
-        status: "Search",
+        summary: "CopayGuard uses this to search patient assistance programs that may apply.",
+        status: "Search target",
       },
     ];
   }
@@ -1044,39 +1091,39 @@ function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
       title: "Plan or PBM price estimate",
       url: "https://www.cms.gov/priorities/key-initiatives/burden-reduction/real-time-benefit-tools",
       summary:
-        "Use the member portal or pharmacy benefit estimate to confirm the patient-specific plan price.",
-      status: "Verify next",
+        "CopayGuard uses plan or pharmacy benefit estimates when patient-specific access is available.",
+      status: "Reference",
     },
     {
       title: "Manufacturer savings terms",
       url: `https://www.google.com/search?q=${medicationQuery}+manufacturer+savings+card+terms`,
       summary:
-        "Check whether a commercial copay card, patient support program, or eligibility exclusion applies.",
+        "CopayGuard checks whether a commercial savings card, support program, or exclusion applies.",
       status: "Search target",
     },
     {
       title: "GoodRx cash discount context",
       url: "https://www.goodrx.com/",
       summary:
-        "Compare cash discount pricing, with the warning that cash spend may not count toward insurance progress.",
+        "Cash discount context, with the warning that cash spend may not count toward insurance progress.",
       status: "Compare",
     },
     {
       title: "SingleCare cash discount context",
       url: "https://www.singlecare.com/",
-      summary: "Use as a second cash price comparison before deciding cash versus insurance.",
+      summary: "Second cash price comparison before deciding cash versus insurance.",
       status: "Compare",
     },
     {
       title: "Medicine Assistance Tool",
       url: "https://www.medicineassistancetool.org/",
-      summary: "Search for patient assistance programs that may apply to the medication.",
+      summary: "CopayGuard uses this to search patient assistance programs that may apply.",
       status: "Search target",
     },
     {
       title: "NeedyMeds",
       url: "https://www.needymeds.org/",
-      summary: "Check for patient assistance, foundation, or coupon program leads.",
+      summary: "CopayGuard checks for patient assistance, foundation, or coupon program leads.",
       status: "Search target",
     },
   ];
@@ -1200,16 +1247,16 @@ function userFacingResultSummary(snapshot: MedicationSnapshot): string {
 function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
   if (snapshot.intake.quotedPriceCents <= 0) {
     return [
-      "Confirm the expected pharmacy price or plan estimate.",
-      "Check whether prior authorization, step therapy, formulary tier, or quantity limits apply.",
-      "Ask whether a covered generic, biosimilar, or clinically appropriate alternative is preferred.",
-      "Compare insurance processing against cash or discount pricing before pickup.",
+      "I’ll estimate likely pharmacy cost before pickup using plan clues and public pricing sources.",
+      "I’ll check whether prior authorization, step therapy, formulary tier, or quantity limits may apply.",
+      "I’ll look for covered generic, biosimilar, or clinically appropriate alternatives.",
+      "I’ll compare insurance processing against cash or discount pricing before pickup.",
     ];
   }
 
   const pendingQuestion = latestFollowUpQuestion(snapshot.messages);
   if (pendingQuestion) {
-    return [`Answer the follow-up so I can rank the route: ${pendingQuestion}`];
+    return [`I need one patient-specific detail before I rank the route: ${pendingQuestion}`];
   }
 
   const artifactSteps = extractActionItems(snapshot.artifacts[0]?.content ?? "");
@@ -1217,9 +1264,9 @@ function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
 
   if (snapshot.options.length) {
     return [
-      "Confirm the quoted price and eligibility details with the pharmacy or plan.",
-      "Use the top ranked route first, then keep the fallback routes ready.",
-      "Save the listed resources as evidence for any plan call, appeal, or exception request.",
+      "I’ll keep the top route and fallback routes ready for the patient-specific facts we have.",
+      "I’ll use the listed resources as evidence for any plan call, appeal, or exception request.",
+      "I’ll update the ranking if new pharmacy, plan, or eligibility details come in.",
     ];
   }
 
@@ -1228,7 +1275,7 @@ function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
   }
 
   return [
-    "Add the missing quote, plan, deductible, out-of-pocket, quantity, or preferred pharmacy details.",
+    "I’ll use the provided quote, plan, medication, and pharmacy clues first; paste extra plan text only if you want a tighter patient-specific result.",
   ];
 }
 
