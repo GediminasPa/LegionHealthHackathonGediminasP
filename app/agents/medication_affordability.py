@@ -147,6 +147,8 @@ def build_medication_agent_prompt(
             "Use the case details silently.",
             "Use tools as needed, but never describe tool use to the patient.",
             "Do not describe what you already did. Tell the patient what to do next.",
+            "Do not give a status update. Do not say the investigation started, context loaded, "
+            "facts were extracted, questions were sent, or responses are awaited.",
             "Do not claim a price reduction unless evidence supports it.",
             "Treat user-entered intake fields, pasted plan/pharmacy text, and recent user chat "
             "answers as correct. Do not ask the patient to repeat a value they already gave.",
@@ -163,6 +165,10 @@ def build_medication_agent_prompt(
             "starting with 'What I looked at:', three ranked next steps, and exactly one "
             "question only if a user-specific fact is still needed. If there is a question, "
             "it must be the final line and nothing should come after it.",
+            "The final answer may contain only these sections: What I looked at, Next steps, "
+            "and Question when needed.",
+            "Always rank the next steps using the facts available. Never say options cannot "
+            "be ranked until more information is provided.",
             "Never say stand by, while tools run, deterministic, preflight, missing_facts, "
             "persist, source_ids, specialist, or cash comparator.",
             "Never write sections named Investigation started, Key constraints, Current cost "
@@ -170,6 +176,9 @@ def build_medication_agent_prompt(
             "Never say I have saved, I have added, persisted, preflight, guardrails, "
             "no price reduction can be claimed, waiting on, would you like me to persist, "
             "assistance matcher, or cash comparator.",
+            "Never say follow-up questions sent, awaiting responses, before ranking options, "
+            "updating cost tracker, case remains, session context, preflight loaded, "
+            "key facts extracted, or missing eligibility facts.",
             "If you call ask_question, repeat that exact question as the final line of your "
             "final answer. Nothing should come after the question.",
             "For Medicare specialty drugs, rank foundation/PAP help first, Medicare payment "
