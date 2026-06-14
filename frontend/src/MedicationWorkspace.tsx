@@ -101,7 +101,7 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
           };
         }
         if (event.type === "question") {
-          const question = String(payload.question ?? payload.content ?? "");
+          const question = patientFriendlyQuestion(String(payload.question ?? payload.content ?? ""));
           return {
             ...current,
             messages: question
@@ -427,7 +427,7 @@ function AgentWorkPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <ResultPacketView packet={resultPacket} running={running} />
+        <ResultPacketView messages={snapshot.messages} packet={resultPacket} running={running} />
         <FollowUpComposer
           draft={draft}
           running={running}
@@ -478,36 +478,106 @@ type CaseResultPacket = {
 };
 
 function ResultPacketView({
+  messages,
   packet,
   running,
 }: {
+  messages: ChatMessage[];
   packet: CaseResultPacket;
   running: boolean;
 }) {
-  return (
-    <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto border border-white/12 bg-[#1f1e1d] px-4 py-5 sm:px-5">
-      <div className="grid gap-4">
-        <ChatBubble tone="user">
-          <p className="ui-sans text-sm leading-6">
-            Review {packet.case.medication || "this medication"} for {packet.case.insurance}.
-          </p>
-        </ChatBubble>
+  const visibleMessages = messages.filter(
+    (message) => message.role !== "assistant" || message.content.trim(),
+  );
 
-        <ChatBubble tone="assistant">
-          <AgentAnswerText packet={packet} running={running} />
-        </ChatBubble>
+  return (
+    <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto bg-[#1f1e1d] px-5 py-6 sm:px-7">
+      <div className="mx-auto max-w-[68rem]">
+        {packet.status === "ready" && packet.best_route ? (
+          <AgentAnswerText packet={packet} />
+        ) : visibleMessages.length ? (
+          <AgentMessageStream messages={visibleMessages} />
+        ) : (
+          <AgentWorkingText packet={packet} running={running} />
+        )}
       </div>
     </article>
   );
 }
 
-function AgentAnswerText({
+function AgentMessageStream({ messages }: { messages: ChatMessage[] }) {
+  return (
+    <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
+      {messages.map((message) => (
+        <p
+          className={message.role === "user" ? "text-[#f7f2ec]" : "whitespace-pre-wrap"}
+          key={message.id}
+        >
+          {formatChatMessage(message)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function formatChatMessage(message: ChatMessage): string {
+  if (message.role === "user") return `You: ${message.content}`;
+  const content = message.content.trim();
+  const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
+  if (followUp !== content) return `I need one detail: ${patientFriendlyQuestion(followUp)}`;
+  return patientFriendlyQuestion(content);
+}
+
+function patientFriendlyQuestion(question: string): string {
+  const value = question.trim().replace(/\s+/g, " ");
+  const lower = value.toLowerCase();
+  if (
+    (lower.includes("accumulator") || lower.includes("maximizer")) &&
+    (lower.includes("copay") ||
+      lower.includes("coupon") ||
+      lower.includes("deductible") ||
+      lower.includes("oop"))
+  ) {
+    return (
+      "When you used or expected the copay card, did the pharmacy, coupon terms, or insurance " +
+      "portal say the discount would not count toward your deductible or out-of-pocket total? " +
+      "If you are not sure, paste the message or plan wording and I will interpret it."
+    );
+  }
+  return value
+    .replace(/\bOOP\b/g, "out-of-pocket")
+    .replace(/\bPA\b/g, "prior authorization")
+    .replace(/\bST\b/g, "step therapy")
+    .replace(/\bQL\b/g, "quantity limit")
+    .replace(/manufacturer copay assistance/gi, "manufacturer copay card")
+    .replace(/eligibility/gi, "whether you qualify");
+}
+
+function AgentWorkingText({
   packet,
   running,
 }: {
   packet: CaseResultPacket;
   running: boolean;
 }) {
+  const medication = packet.case.medication || "this medication";
+  const quotedPrice =
+    packet.costs.quoted_price.cents > 0
+      ? ` The current quote is ${packet.costs.quoted_price.formatted}.`
+      : "";
+
+  return (
+    <div className="ui-sans text-sm leading-7 text-[#ded8d0]">
+      <p>
+        {running
+          ? `Checking ${medication} coverage, pricing routes, support programs, and pharmacy options.${quotedPrice}`
+          : `Ready to continue the ${medication} review.`}
+      </p>
+    </div>
+  );
+}
+
+function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
   const resourceList = packet.resources.slice(0, 5);
   const bestPriceLabel =
     packet.costs.best_price.cents == null || !packet.costs.best_price.label
@@ -520,8 +590,8 @@ function AgentAnswerText({
 
   return (
     <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
-      <p className="font-semibold text-[#f7f2ec]">
-        {running ? "I am updating the result." : "Here is the current result."}
+      <p className="text-base font-semibold leading-7 text-[#f7f2ec]">
+        Reviewing {packet.case.medication || "this medication"} for {packet.case.insurance}.
       </p>
 
       <section className="space-y-1">
@@ -592,21 +662,6 @@ function AgentAnswerText({
       </section>
     </div>
   );
-}
-
-function ChatBubble({
-  children,
-  tone,
-}: {
-  children: React.ReactNode;
-  tone: "assistant" | "user";
-}) {
-  const alignment = tone === "user" ? "ml-auto max-w-[46rem]" : "mr-auto w-full max-w-[68rem]";
-  const colors =
-    tone === "user"
-      ? "border-[#ef6844]/40 bg-[#3a302c] text-[#f7f2ec]"
-      : "border-white/12 bg-[#252321] text-[#f7f2ec]";
-  return <section className={`${alignment} border p-4 ${colors}`}>{children}</section>;
 }
 
 function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {

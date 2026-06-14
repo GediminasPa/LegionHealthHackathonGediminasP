@@ -145,6 +145,10 @@ def build_medication_agent_prompt(
             "activity, and artifact you create.",
             "Do not claim a price reduction unless a tool-persisted source supports it; "
             "use unknown or needs_user_confirmation when eligibility is unresolved.",
+            "Write patient-facing text in plain English. Do not ask the patient to identify "
+            "insurance jargon such as accumulator, maximizer, PA, ST, QL, formulary tier, "
+            "or OOP max. Ask for visible facts, messages, documents, or permission to "
+            "interpret pasted wording instead.",
             "",
             "Current intake:",
             f"- Patient/display name: {patient_display_name(intake.patient_name, 'not provided')}",
@@ -497,6 +501,7 @@ async def ask_question(
     choices: list[str] | None = None,
 ) -> dict[str, Any]:
     """Persist and stream a follow-up question when eligibility facts are missing."""
+    question = patient_friendly_question(question)
     ctx.deps.emit("tool_call", {"name": "ask_question", "args": {"question": question}})
     state = await _get_case_state(ctx.deps.session, ctx.deps.session_id)
     questions = list(state.state_json.get("questions") or [])
@@ -515,6 +520,33 @@ async def ask_question(
     )
     ctx.deps.emit("tool_result", {"name": "ask_question", "result": payload})
     return payload
+
+
+def patient_friendly_question(question: str) -> str:
+    value = " ".join(question.strip().split())
+    lower = value.lower()
+    if ("accumulator" in lower or "maximizer" in lower) and (
+        "copay" in lower or "coupon" in lower or "deductible" in lower or "oop" in lower
+    ):
+        return (
+            "When you used or expected the copay card, did the pharmacy, coupon terms, "
+            "or insurance portal say the discount would not count toward your deductible "
+            "or out-of-pocket total? If you are not sure, paste the message or plan wording "
+            "and I will interpret it."
+        )
+
+    replacements = {
+        "OOP": "out-of-pocket",
+        "oop": "out-of-pocket",
+        "PA": "prior authorization",
+        "ST": "step therapy",
+        "QL": "quantity limit",
+        "manufacturer copay assistance": "manufacturer copay card",
+        "eligibility": "whether you qualify",
+    }
+    for raw, friendly in replacements.items():
+        value = value.replace(raw, friendly)
+    return value
 
 
 @medication_affordability_agent.tool(sequential=True)
