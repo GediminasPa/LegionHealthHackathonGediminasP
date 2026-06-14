@@ -44,9 +44,9 @@ export default function MedicationAffordabilityApp() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#1f1e1d] text-[#f7f2ec]">
-      <header className="sticky top-0 z-20 border-b border-white/12 bg-[#1f1e1d]">
-        <div className="mx-auto flex min-h-20 max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:px-10">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#1f1e1d] text-[#f7f2ec]">
+      <header className="z-20 shrink-0 border-b border-white/12 bg-[#1f1e1d]">
+        <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between gap-3 px-3 sm:px-5 lg:px-8">
           <div className="flex min-w-0 items-center gap-0">
             <button
               className="button-press shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ef6844]"
@@ -55,14 +55,16 @@ export default function MedicationAffordabilityApp() {
               aria-label="Return to initial page"
             >
               <img
-                className="h-24 w-24 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-2 sm:h-28 sm:w-28"
+                className="h-14 w-14 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-1 sm:h-16 sm:w-16"
                 src={PRODUCT_LOGO_SRC}
                 alt=""
               />
             </button>
             <div className="min-w-0">
-              <p className="text-2xl font-bold tracking-[-0.05em] text-[#f7f2ec]">{PRODUCT_NAME}</p>
-              <h1 className="ui-sans truncate text-xs font-semibold uppercase tracking-[0.12em] text-[#c7c0b8]">
+              <p className="truncate text-xl font-bold tracking-[-0.05em] text-[#f7f2ec] sm:text-2xl">
+                {PRODUCT_NAME}
+              </p>
+              <h1 className="ui-sans hidden truncate text-xs font-semibold uppercase tracking-[0.12em] text-[#c7c0b8] sm:block">
                 <span className="sm:hidden">Case review</span>
                 <span className="hidden sm:inline">Case investigation</span>
               </h1>
@@ -118,7 +120,7 @@ function HeaderPriceSignals({ tracker }: { tracker: CostTrackerState }) {
   }, []);
 
   return (
-    <div className="ui-sans order-3 flex w-full min-w-0 items-center gap-6 text-sm font-semibold uppercase tracking-[0.08em] sm:order-none sm:mx-auto sm:w-auto sm:flex-1 sm:justify-center">
+    <div className="ui-sans hidden min-w-0 items-center justify-center gap-6 text-sm font-semibold uppercase tracking-[0.08em] md:flex md:flex-1">
       <div className="min-w-0 text-[#c7c0b8]">
         <span>
           Quote

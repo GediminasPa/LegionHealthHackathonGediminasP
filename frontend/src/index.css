@@ -122,8 +122,21 @@
     scrollbar-color: #746b65 transparent;
   }
 
+  .workspace-grid {
+    grid-template-rows: minmax(0, 1.35fr) minmax(12rem, 0.85fr);
+    overflow: hidden;
+  }
+
+  @media (min-width: 54rem) {
+    .workspace-grid {
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    }
+  }
+
   .workspace-panel-height {
-    height: clamp(34rem, 68dvh, 48rem);
+    height: 100%;
+    min-height: 0;
   }
 
   .workspace-sidebar > section {
@@ -137,12 +150,13 @@
 
   @media (width < 80rem) {
     .workspace-panel-height {
-      height: auto;
+      height: 100%;
+      min-height: 0;
     }
 
     .agent-transcript-scroll {
-      height: clamp(24rem, 58dvh, 36rem);
-      flex: none;
+      min-height: 0;
+      flex: 1 1 auto;
     }
   }
 

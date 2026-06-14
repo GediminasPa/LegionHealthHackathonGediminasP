@@ -10,8 +10,6 @@ import {
 } from "react";
 import {
   ArrowUp,
-  Bot,
-  ChevronDown,
   CheckCircle2,
   CircleDot,
   ExternalLink,
@@ -284,24 +282,18 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
     await handleSend(content);
   }
 
-  const assistantMessages = useMemo(
-    () => snapshot.messages.filter((message) => message.role === "assistant"),
-    [snapshot.messages],
-  );
-  const latestActivity = snapshot.activities.at(-1);
-  const statusText = reviewStatusText(snapshot, running, latestActivity);
+  const statusText = reviewStatusText(snapshot, running);
 
   return (
-    <main className="bg-[#1f1e1d]">
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col px-3 pb-8 pt-4 sm:px-5 lg:px-8">
-        <div className="grid w-full flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,410px)]">
-          <section className="min-w-0 space-y-5">
+    <main className="flex min-h-0 flex-1 overflow-hidden bg-[#1f1e1d]">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-[1500px] flex-col px-3 py-3 sm:px-5 lg:px-8">
+        <div className="workspace-grid grid h-full min-h-0 w-full flex-1 gap-4">
+          <section className="workspace-primary flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
             <AgentWorkPanel
-              assistantMessages={assistantMessages}
               draft={draft}
               running={running}
               setDraft={setDraft}
-              sources={snapshot.sources}
+              snapshot={snapshot}
               status={snapshot.status}
               statusText={statusText}
               submitFollowUp={submitFollowUp}
@@ -311,14 +303,13 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
             ) : null}
           </section>
 
-          <aside className="workspace-panel-height workspace-sidebar scrollbar-soft flex min-w-0 flex-col gap-4 overflow-y-auto xl:sticky xl:top-24 xl:self-start">
+          <aside className="workspace-panel-height workspace-sidebar scrollbar-soft flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto">
             <CaseReviewHeader
               intake={snapshot.intake}
               running={running}
               status={snapshot.status}
               statusText={statusText}
             />
-            <LiveActivity activities={snapshot.activities} running={running} compact />
             <RouteSummary options={snapshot.options} />
             <CaseSnapshot intake={snapshot.intake} flags={snapshot.flags} status={snapshot.status} />
             <DraftSummary artifactCount={snapshot.artifacts.length} />
@@ -394,34 +385,34 @@ function RunError({
 }
 
 function AgentWorkPanel({
-  assistantMessages,
   draft,
   running,
   setDraft,
-  sources,
+  snapshot,
   status,
   statusText,
   submitFollowUp,
 }: {
-  assistantMessages: ChatMessage[];
   draft: string;
   running: boolean;
   setDraft: Dispatch<SetStateAction<string>>;
-  sources: SourceRecord[];
+  snapshot: MedicationSnapshot;
   status: MedicationSnapshot["status"];
   statusText: string;
   submitFollowUp: () => Promise<void>;
 }) {
+  const resultPacket = useMemo(() => buildResultPacket(snapshot), [snapshot]);
+
   return (
-    <section className="workspace-panel-height flex w-full min-w-0 flex-col overflow-hidden border border-white/12 bg-[#2b2928]">
+    <section className="workspace-panel-height flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border border-white/12 bg-[#2b2928]">
       <div className="border-b border-white/12 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center bg-[#ef6844] text-white">
-              <Bot size={18} />
+              <MessageCircle size={18} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-[#f7f2ec]">Agent work</h2>
+              <h2 className="text-base font-semibold text-[#f7f2ec]">Agent chat</h2>
               <p className="ui-sans mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
                 {statusText}
               </p>
@@ -436,7 +427,7 @@ function AgentWorkPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <AgentTranscript assistantMessages={assistantMessages} running={running} sources={sources} />
+        <ResultPacketView packet={resultPacket} running={running} />
         <FollowUpComposer
           draft={draft}
           running={running}
@@ -448,227 +439,315 @@ function AgentWorkPanel({
   );
 }
 
-function AgentTranscript({
-  assistantMessages,
+type CaseResultPacket = {
+  status: MedicationSnapshot["status"];
+  case: {
+    patient: string;
+    medication: string;
+    plan: string;
+    insurance: string;
+    pa_status: string;
+    diagnosis: string;
+  };
+  costs: {
+    quoted_price: { cents: number; formatted: string };
+    best_price: { label: string; cents: number | null; formatted: string };
+    potential_savings: { cents: number | null; formatted: string | null };
+    confidence: string;
+  };
+  what_we_found: string;
+  best_route: {
+    title: string;
+    summary: string;
+    confidence: string;
+    drop_type: string | null;
+  } | null;
+  resources: Array<{
+    title: string;
+    publisher: string | null;
+    url: string;
+    summary: string | null;
+  }>;
+  next_steps: string[];
+  guardrails: string[];
+  drafts: Array<{
+    title: string;
+    type: string;
+    status: string;
+  }>;
+};
+
+function ResultPacketView({
+  packet,
   running,
-  sources,
 }: {
-  assistantMessages: ChatMessage[];
+  packet: CaseResultPacket;
   running: boolean;
-  sources: SourceRecord[];
 }) {
   return (
-    <article className="agent-transcript-scroll min-h-0 flex-1 border border-white/12 bg-[#1f1e1d] px-4 py-5 sm:px-5">
-      {assistantMessages.length === 0 ? (
-        <InitialResearchState running={running} />
-      ) : (
-        <div className="grid gap-6">
-          {assistantMessages.map((message, index) => (
-            <section className="grid gap-4" key={message.id}>
-              {index > 0 ? (
-                <div className="ui-sans flex items-center gap-2 border-t border-white/12 pt-6 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-                  <MessageCircle size={14} />
-                  Follow-up answer
+    <article className="agent-transcript-scroll min-h-0 flex-1 overflow-y-auto border border-white/12 bg-[#1f1e1d] px-4 py-5 sm:px-5">
+      <div className="grid gap-4">
+        <ChatBubble tone="user">
+          <p className="ui-sans text-sm leading-6">
+            Review {packet.case.medication || "this medication"} for {packet.case.insurance}.
+          </p>
+        </ChatBubble>
+
+        <ChatBubble tone="assistant">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-[#f7f2ec]">Structured result</p>
+              <p className="ui-sans mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+                {running ? "Updating" : "Latest answer"}
+              </p>
+            </div>
+            {running ? <Loader2 className="animate-spin text-[#ef6844]" size={18} /> : null}
+          </div>
+
+          <div className="mt-4 grid gap-5">
+            <div className="grid gap-3 md:grid-cols-3">
+              <MetricCard label="Quoted price" value={packet.costs.quoted_price.formatted} />
+              <MetricCard
+                label={packet.costs.best_price.label}
+                value={packet.costs.best_price.formatted}
+              />
+              <MetricCard
+                label="Potential savings"
+                value={packet.costs.potential_savings.formatted ?? "Needs quote"}
+              />
+            </div>
+
+            <ResultSection title="What we found">
+              <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">{packet.what_we_found}</p>
+            </ResultSection>
+
+            <ResultSection title="Best route">
+              {packet.best_route ? (
+                <div className="grid gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold text-[#f7f2ec]">
+                      {packet.best_route.title}
+                    </h3>
+                    <span className="ui-sans border border-white/12 bg-[#302e2c] px-2 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+                      {labelize(packet.best_route.confidence)}
+                    </span>
+                  </div>
+                  <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
+                    {packet.best_route.summary}
+                  </p>
                 </div>
-              ) : null}
-              <AgentMarkdown content={message.content} />
-            </section>
-          ))}
-        </div>
-      )}
+              ) : (
+                <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
+                  {running
+                    ? "CopayGuard is building the ranked route."
+                    : "No ranked route is ready yet. Add the missing details and rerun the review."}
+                </p>
+              )}
+            </ResultSection>
 
-      {running ? (
-        <div className="ui-sans mt-6 inline-flex items-center gap-2 border border-white/12 bg-[#302e2c] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef6844]" />
-          Summarizing
-        </div>
-      ) : null}
+            <ResultSection title="Next steps">
+              <ol className="ui-sans grid gap-2 pl-5 text-sm leading-6 text-[#c7c0b8]">
+                {packet.next_steps.map((step) => (
+                  <li className="list-decimal" key={step}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </ResultSection>
 
-      {sources.length ? <SourceRibbon sources={sources} /> : null}
+            <ResultSection title="Resources">
+              {packet.resources.length ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {packet.resources.slice(0, 6).map((source) => (
+                    <a
+                      className="button-press min-w-0 border border-white/12 bg-[#2b2928] p-3 text-[#f7f2ec] hover:border-[#ef6844]/70"
+                      href={source.url}
+                      key={`${source.title}-${source.url}`}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">
+                            {source.publisher || source.title}
+                          </span>
+                          {source.summary ? (
+                            <span className="ui-sans mt-1 line-clamp-2 block text-xs leading-5 text-[#c7c0b8]">
+                              {source.summary}
+                            </span>
+                          ) : null}
+                        </span>
+                        <ExternalLink className="shrink-0 text-[#8f8780]" size={14} />
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
+                  Evidence sources will appear once the review saves them.
+                </p>
+              )}
+            </ResultSection>
+
+            <ResultSection title="Result JSON">
+              <pre className="ui-sans max-h-96 overflow-auto border border-white/12 bg-[#11100f] p-4 text-xs leading-5 text-[#d8d2ca]">
+                {JSON.stringify(packet, null, 2)}
+              </pre>
+            </ResultSection>
+          </div>
+        </ChatBubble>
+      </div>
     </article>
   );
 }
 
-function InitialResearchState({ running }: { running: boolean }) {
-  return (
-    <div className="grid gap-6">
-      <div className="flex items-start gap-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ef6844] text-white">
-          <Bot size={19} />
-        </span>
-        <div>
-          <h2 className="text-2xl font-semibold leading-8 text-[#f7f2ec]">
-            {running ? "Starting the affordability review." : "Ready to review the case."}
-          </h2>
-          <p className="ui-sans mt-2 max-w-[62ch] text-sm leading-6 text-[#c7c0b8]">
-            I am checking coverage rules, patient assistance, savings routes, pharmacy options,
-            and clinical guardrails before ranking the next steps.
-          </p>
-        </div>
-      </div>
+function ChatBubble({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: "assistant" | "user";
+}) {
+  const alignment = tone === "user" ? "ml-auto max-w-[46rem]" : "mr-auto w-full max-w-[68rem]";
+  const colors =
+    tone === "user"
+      ? "border-[#ef6844]/40 bg-[#3a302c] text-[#f7f2ec]"
+      : "border-white/12 bg-[#252321] text-[#f7f2ec]";
+  return <section className={`${alignment} border p-4 ${colors}`}>{children}</section>;
+}
 
-      <div className="grid gap-3">
-        {[0, 1, 2, 3].map((item) => (
-          <div
-            className="h-4 animate-pulse bg-[#302e2c]"
-            key={item}
-            style={{ width: `${92 - item * 13}%` }}
-          />
-        ))}
-      </div>
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border border-white/12 bg-[#2b2928] p-4">
+      <p className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-2xl font-semibold tracking-[-0.04em] text-[#f7f2ec]">
+        {value}
+      </p>
     </div>
   );
 }
 
-function AgentMarkdown({ content }: { content: string }) {
-  const blocks = markdownBlocks(content);
-
+function ResultSection({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
   return (
-    <div className="ui-sans space-y-4 text-sm leading-6 text-[#f7f2ec] sm:text-[0.92rem] sm:leading-7">
-      {blocks.map((block, index) => {
-        if (block.type === "heading") {
-          const Heading = block.level === 2 ? "h2" : "h3";
-          return (
-            <Heading
-              className="pt-1 text-base font-semibold leading-7 text-[#f7f2ec] sm:text-lg"
-              key={`${block.type}-${index}`}
-            >
-              {renderInline(block.text)}
-            </Heading>
-          );
+    <section className="border border-white/12 bg-[#171615] p-4">
+      <h3 className="text-base font-semibold text-[#f7f2ec]">{title}</h3>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {
+  const bestRoute = snapshot.options[0] ?? null;
+  const bestPriceCents = snapshot.costTracker.currentBestEstimatedPriceCents;
+  return {
+    status: snapshot.status,
+    case: {
+      patient: snapshot.intake.patientName || "Patient",
+      medication: [snapshot.intake.medicationName, snapshot.intake.strength]
+        .filter(Boolean)
+        .join(" "),
+      plan: snapshot.intake.planName || "Unknown plan",
+      insurance: snapshot.intake.insuranceType,
+      pa_status: snapshot.intake.paStatus,
+      diagnosis: snapshot.intake.diagnosis || "Not provided",
+    },
+    costs: {
+      quoted_price: {
+        cents: snapshot.costTracker.quotedPriceCents,
+        formatted: formatCents(snapshot.costTracker.quotedPriceCents),
+      },
+      best_price: {
+        label: snapshot.costTracker.currentBestLabel || "Best estimate",
+        cents: bestPriceCents,
+        formatted: bestPriceCents == null ? "Needs confirmation" : formatCents(bestPriceCents),
+      },
+      potential_savings: {
+        cents: snapshot.costTracker.potentialDropCents,
+        formatted:
+          snapshot.costTracker.potentialDropCents == null
+            ? null
+            : formatCents(snapshot.costTracker.potentialDropCents),
+      },
+      confidence: snapshot.costTracker.confidence,
+    },
+    what_we_found:
+      snapshot.costTracker.explanation ||
+      "CopayGuard is still preparing the affordability result.",
+    best_route: bestRoute
+      ? {
+          title: bestRoute.title,
+          summary: bestRoute.summary,
+          confidence: bestRoute.confidence,
+          drop_type: bestRoute.dropType ?? null,
         }
-
-        if (block.type === "list") {
-          const ListTag = block.ordered ? "ol" : "ul";
-          return (
-            <ListTag
-              className={`grid gap-1.5 pl-5 ${block.ordered ? "list-decimal" : "list-disc"}`}
-              key={`${block.type}-${index}`}
-            >
-              {block.items.map((item, itemIndex) => (
-                <li key={`${item}-${itemIndex}`}>{renderInline(item)}</li>
-              ))}
-            </ListTag>
-          );
-        }
-
-        return (
-          <p className="max-w-[72ch]" key={`${block.type}-${index}`}>
-            {renderInline(block.text)}
-          </p>
-        );
-      })}
-    </div>
-  );
+      : null,
+    resources: snapshot.sources.map((source) => ({
+      title: source.title,
+      publisher: source.publisher ?? null,
+      url: source.url,
+      summary: source.summary ?? null,
+    })),
+    next_steps: deriveNextSteps(snapshot),
+    guardrails: snapshot.flags.map(labelize),
+    drafts: snapshot.artifacts.map((artifact) => ({
+      title: artifact.title,
+      type: labelize(artifact.artifactType),
+      status: artifact.status,
+    })),
+  };
 }
 
-type MarkdownBlock =
-  | { type: "heading"; level: 2 | 3; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "list"; ordered: boolean; items: string[] };
+function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
+  const pendingQuestion = latestFollowUpQuestion(snapshot.messages);
+  if (pendingQuestion) return [`Answer follow-up: ${pendingQuestion}`];
 
-function markdownBlocks(content: string): MarkdownBlock[] {
-  const blocks: MarkdownBlock[] = [];
-  const paragraph: string[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
+  const artifactSteps = extractActionItems(snapshot.artifacts[0]?.content ?? "");
+  if (artifactSteps.length) return artifactSteps.slice(0, 5);
 
-  function flushParagraph() {
-    if (!paragraph.length) return;
-    blocks.push({ type: "paragraph", text: paragraph.join(" ") });
-    paragraph.length = 0;
+  if (snapshot.options.length) {
+    return [
+      "Confirm the quoted price and eligibility details with the pharmacy or plan.",
+      "Use the top ranked route first, then keep the fallback routes ready.",
+      "Save the listed resources as evidence for any plan call, appeal, or exception request.",
+    ];
   }
 
-  function flushList() {
-    if (!list) return;
-    blocks.push({ type: "list", ordered: list.ordered, items: list.items });
-    list = null;
+  if (snapshot.status === "investigating") {
+    return ["Wait for CopayGuard to finish the structured affordability result."];
   }
 
-  for (const rawLine of content.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    const heading = line.match(/^(#{2,3})\s+(.+)$/);
-    if (heading) {
-      flushParagraph();
-      flushList();
-      blocks.push({
-        type: "heading",
-        level: heading[1].length === 2 ? 2 : 3,
-        text: heading[2],
-      });
-      continue;
-    }
-
-    const unordered = line.match(/^[-*]\s+(.+)$/);
-    const ordered = line.match(/^\d+\.\s+(.+)$/);
-    if (unordered || ordered) {
-      flushParagraph();
-      const orderedList = Boolean(ordered);
-      if (!list || list.ordered !== orderedList) {
-        flushList();
-        list = { ordered: orderedList, items: [] };
-      }
-      list.items.push((unordered?.[1] ?? ordered?.[1] ?? "").trim());
-      continue;
-    }
-
-    flushList();
-    paragraph.push(line);
-  }
-
-  flushParagraph();
-  flushList();
-  return blocks.length ? blocks : [{ type: "paragraph", text: content }];
+  return [
+    "Add the missing quote, plan, deductible, out-of-pocket, quantity, or preferred pharmacy details.",
+  ];
 }
 
-function renderInline(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    return <span key={index}>{part}</span>;
-  });
+function latestFollowUpQuestion(messages: ChatMessage[]): string | null {
+  const question = [...messages]
+    .reverse()
+    .find((message) =>
+      message.content.trim().toLowerCase().startsWith("i need one detail:"),
+    );
+  return question?.content.replace(/^I need one detail:\s*/i, "").trim() || null;
 }
 
-function SourceRibbon({ sources }: { sources: SourceRecord[] }) {
-  const visible = sources.slice(0, 5);
-  const extraCount = Math.max(sources.length - visible.length, 0);
-
-  return (
-    <div className="ui-sans mt-7 flex flex-wrap items-center gap-2 border-t border-white/12 pt-5">
-      {visible.map((source) =>
-        source.url ? (
-          <a
-            className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#625a55] px-3 py-1.5 text-sm font-semibold text-[#f7f2ec] hover:bg-[#746b65]"
-            href={source.url}
-            key={source.id}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <span className="truncate">{source.publisher || source.title}</span>
-            <ExternalLink className="shrink-0" size={13} />
-          </a>
-        ) : (
-          <span
-            className="inline-flex max-w-full items-center rounded-full bg-[#625a55] px-3 py-1.5 text-sm font-semibold text-[#f7f2ec]"
-            key={source.id}
-          >
-            <span className="truncate">{source.publisher || source.title}</span>
-          </span>
-        ),
-      )}
-      {extraCount ? (
-        <span className="rounded-full bg-[#625a55] px-3 py-1.5 text-sm font-semibold text-[#f7f2ec]">
-          +{extraCount}
-        </span>
-      ) : null}
-    </div>
-  );
+function extractActionItems(content: string): string[] {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .map((line) => line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, ""))
+    .filter((line) => line.length > 0)
+    .filter((line) => !line.endsWith(":"))
+    .filter((line) => !line.toLowerCase().startsWith("patient:"))
+    .filter((line) => !line.toLowerCase().startsWith("medication:"))
+    .filter((line) => !line.toLowerCase().startsWith("diagnosis:"));
 }
 
 function RouteSummary({ options }: { options: AffordabilityOption[] }) {
@@ -816,69 +895,6 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LiveActivity({
-  activities,
-  running,
-  compact = false,
-}: {
-  activities: ActivityEvent[];
-  running: boolean;
-  compact?: boolean;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-  const visible = activities.slice(-5).reverse();
-
-  return (
-    <section className={`w-full min-w-0 overflow-hidden border border-white/12 ${compact ? "bg-[#1f1e1d] p-3" : "bg-[#2b2928] p-4"}`}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-[#f7f2ec]">Agent activity</h2>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="ui-sans border border-white/12 bg-[#1f1e1d] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-            {running ? "Running" : "Idle"}
-          </span>
-          <button
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand agent activity" : "Collapse agent activity"}
-            className="button-press inline-flex h-8 w-8 items-center justify-center border border-white/12 bg-[#1f1e1d] text-[#c7c0b8] hover:border-[#ef6844]/70 hover:text-[#f7f2ec]"
-            title={collapsed ? "Expand activity" : "Collapse activity"}
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-          >
-            <ChevronDown
-              className={`transition-transform ${collapsed ? "-rotate-90" : "rotate-0"}`}
-              size={16}
-            />
-          </button>
-        </div>
-      </div>
-      {!collapsed ? (
-        <div className="mt-4 grid gap-3">
-          {visible.length === 0 ? (
-            <p className="ui-sans border border-dashed border-white/12 bg-[#1f1e1d] p-3 text-sm leading-6 text-[#c7c0b8]">
-              Starting the review sequence.
-            </p>
-          ) : null}
-          {visible.map((activity) => (
-            <div className="flex min-w-0 gap-3 border border-white/12 bg-[#1f1e1d] p-3" key={activity.id}>
-              <span className="mt-0.5 text-[#ef6844]">
-                {activity.status === "completed" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#f7f2ec]">{activity.title}</p>
-                {activity.summary ? (
-                  <p className="ui-sans mt-1 line-clamp-3 text-xs leading-5 text-[#c7c0b8]">
-                    {activity.summary}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function DraftSummary({ artifactCount }: { artifactCount: number }) {
   return (
     <section className="w-full min-w-0 overflow-hidden border border-white/12 bg-[#2b2928] p-4">
@@ -898,11 +914,9 @@ function DraftSummary({ artifactCount }: { artifactCount: number }) {
 function reviewStatusText(
   snapshot: MedicationSnapshot,
   running: boolean,
-  latestActivity: ActivityEvent | undefined,
 ): string {
   if (snapshot.status === "error") return "Review paused";
-  if (running && latestActivity?.title) return `${latestActivity.title}`;
-  if (running) return "Analyzing case, checking evidence";
+  if (running) return "Building result";
   if (snapshot.status === "waiting") return "Needs follow-up";
   if (snapshot.status === "ready") return "Review complete";
   return "Preparing review";
