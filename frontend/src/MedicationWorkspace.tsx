@@ -727,56 +727,33 @@ function isPatientVisibleMessage(message: ChatMessage): boolean {
 
 function isPatientVisibleAssistantContent(content: string): boolean {
   const trimmed = content.trim();
-  const lower = trimmed.toLowerCase();
   if (!trimmed) return false;
-  if (isInternalAssistantNarration(lower)) return false;
-  return true;
-}
-
-function isInternalAssistantNarration(lower: string): boolean {
-  if (
-    (lower.startsWith("i'll now") || lower.startsWith("i will now")) &&
-    (lower.includes("persist") ||
-      lower.includes("preflight") ||
-      lower.includes("tool") ||
-      lower.includes("state"))
-  ) {
-    return true;
-  }
-  if (
-    lower.includes("get_session_context") ||
-    lower.includes("run_case_preflight") ||
-    lower.includes("investigation started for") ||
-    lower.includes("key intake confirmed") ||
-    lower.includes("case classified as") ||
-    lower.includes("case moment:") ||
-    lower.includes("blocked route") ||
-    lower.includes("allowed route families") ||
-    lower.includes("current cost tracker") ||
-    lower.includes("current cost tracker status") ||
-    lower.includes("missing facts") ||
-    lower.includes("missing whether you qualify facts") ||
-    lower.includes("next required fact") ||
-    lower.includes("i have asked the patient") ||
-    lower.includes("i will continue routing") ||
-    lower.includes("no price reduction is claimed") ||
-    lower.includes("persisting the start") ||
-    lower.includes("persisting the investigation") ||
-    lower.includes("persist the investigation") ||
-    lower.includes("required by the preflight") ||
-    lower.includes("before ranking options")
-  ) {
-    return true;
-  }
-  return false;
+  return trimmed.toLowerCase().startsWith("i need one detail:");
 }
 
 function formatChatMessage(message: ChatMessage): string {
   if (message.role === "user") return message.content;
   const content = message.content.trim();
   const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
-  if (followUp !== content) return `I need one detail: ${patientFriendlyQuestion(followUp)}`;
+  if (followUp !== content) return `I need one detail: ${shortFollowUpQuestion(followUp)}`;
   return patientFriendlyQuestion(content);
+}
+
+function shortFollowUpQuestion(question: string): string {
+  const lower = question.toLowerCase();
+  if (lower.includes("household income") && lower.includes("household size")) {
+    return "What is your approximate annual household income and household size?";
+  }
+  if (lower.includes("household size")) {
+    return "What is your household size?";
+  }
+  if (lower.includes("income")) {
+    return "What is your approximate annual household income?";
+  }
+  if (lower.includes("pharmacy") && lower.includes("insurance")) {
+    return "Did the pharmacy run this through insurance?";
+  }
+  return patientFriendlyQuestion(question);
 }
 
 function FormattedAssistantMessage({ content }: { content: string }) {
