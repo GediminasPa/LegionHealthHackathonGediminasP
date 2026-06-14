@@ -377,8 +377,12 @@ function blankLocalIntake(): MedicationIntakeData {
     paStatus: "unknown",
     planName: "",
     planId: "",
+    deductibleRemaining: "",
     diagnosis: "",
+    outOfPocketRemaining: "",
     pastedText: "",
+    preferredPharmacy: "",
+    quantityDaysSupply: "",
   };
 }
 
@@ -585,8 +589,12 @@ function fromApiIntake(intake: ApiIntake): MedicationIntakeData {
         : "unknown",
     planName: intake.plan_name ?? "",
     planId: intake.plan_id ?? "",
+    deductibleRemaining: "",
     diagnosis: intake.diagnosis ?? "",
+    outOfPocketRemaining: "",
     pastedText: intake.pasted_text ?? "",
+    preferredPharmacy: "",
+    quantityDaysSupply: "",
   };
 }
 

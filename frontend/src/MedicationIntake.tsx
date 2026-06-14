@@ -55,6 +55,10 @@ type RandomMedicationTemplate = {
   insuranceType: string;
   paStatus: PaStatus;
   planNames: string[];
+  deductibleRemaining: string;
+  outOfPocketRemaining: string;
+  preferredPharmacy: string;
+  quantityDaysSupply: string;
   pastedText: string;
   caseReason: string;
 };
@@ -125,6 +129,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Commercial",
     paStatus: "approved",
     planNames: ["Employer PPO specialty benefit", "Commercial high-deductible plan"],
+    deductibleRemaining: "$1,800 remaining",
+    outOfPocketRemaining: "$5,400 remaining",
+    preferredPharmacy: "Plan specialty pharmacy",
+    quantityDaysSupply: "2 pens / 28 days",
     pastedText:
       "Specialty copay assistance may not apply to deductible or out-of-pocket maximum. Patient saw a low first-fill charge but is worried the accumulator will reset progress later.",
     caseReason:
@@ -140,6 +148,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Medicare Part D",
     paStatus: "approved",
     planNames: ["Aetna SilverScript SmartSaver", "Humana Basic Rx Plan"],
+    deductibleRemaining: "$0 remaining",
+    outOfPocketRemaining: "$1,900 remaining",
+    preferredPharmacy: "Local retail pharmacy",
+    quantityDaysSupply: "60 tablets / 30 days",
     pastedText:
       "Pharmacy quote jumped after the deductible stage. Patient wants to know whether Extra Help, Medicare Prescription Payment Plan, or a formulary alternative should be checked.",
     caseReason:
@@ -155,6 +167,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Commercial",
     paStatus: "unknown",
     planNames: ["Commercial PPO pharmacy benefit", "High-deductible employer plan"],
+    deductibleRemaining: "Unknown",
+    outOfPocketRemaining: "Unknown",
+    preferredPharmacy: "CVS",
+    quantityDaysSupply: "30 capsules / 30 days",
     pastedText:
       "Patient has not filled yet. Check whether generic lisdexamfetamine, preferred stimulant alternatives, prior authorization, and cash pricing should be reviewed before pickup.",
     caseReason:
@@ -170,6 +186,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Commercial",
     paStatus: "pending",
     planNames: ["Employer PPO specialty pharmacy benefit", "Commercial specialty tier plan"],
+    deductibleRemaining: "$900 remaining",
+    outOfPocketRemaining: "$4,200 remaining",
+    preferredPharmacy: "Accredo specialty pharmacy",
+    quantityDaysSupply: "1 pen / 84 days",
     pastedText:
       "Specialty pharmacy quoted a high first-fill amount while PA status is still unclear. Patient wants coverage, bridge support, manufacturer support, and alternatives checked.",
     caseReason:
@@ -185,6 +205,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Commercial",
     paStatus: "unknown",
     planNames: ["Commercial PPO pharmacy benefit", "Employer pharmacy plan"],
+    deductibleRemaining: "Unknown",
+    outOfPocketRemaining: "Unknown",
+    preferredPharmacy: "Walgreens",
+    quantityDaysSupply: "4 pens / 28 days",
     pastedText:
       "Prescription was sent before the first fill. Check indication fit, PA risk, step therapy, savings eligibility, and clinically appropriate covered alternatives.",
     caseReason:
@@ -200,6 +224,10 @@ const RANDOM_MEDICATION_TEMPLATES: RandomMedicationTemplate[] = [
     insuranceType: "Commercial",
     paStatus: "approved",
     planNames: ["Employer HDHP with copay support language", "Commercial PPO pharmacy benefit"],
+    deductibleRemaining: "$2,300 remaining",
+    outOfPocketRemaining: "$6,100 remaining",
+    preferredPharmacy: "Walmart Pharmacy",
+    quantityDaysSupply: "30 tablets / 30 days",
     pastedText:
       "Plan materials mention that manufacturer assistance may be excluded from deductible credit. Patient wants to avoid a surprise after using a copay card.",
     caseReason:
@@ -312,11 +340,12 @@ export default function MedicationIntake({
               selectedCaseId={selectedCaseId}
               onRandom={applyRandomCase}
               onSelect={(demo) => {
-                const scenarioId = inferScenarioId(demo.intake);
+                const demoIntake = intakeWithDemoDetailDefaults(demo.intake);
+                const scenarioId = inferScenarioId(demoIntake);
                 setSelectedCaseId(demo.id);
                 setSelectedScenarioId(scenarioId);
-                setCaseReason(caseReasonFromIntake(demo.intake) || defaultReasonForScenario(scenarioId));
-                setIntake(demo.intake);
+                setCaseReason(caseReasonFromIntake(demoIntake) || defaultReasonForScenario(scenarioId));
+                setIntake(demoIntake);
               }}
             />
 
@@ -434,6 +463,24 @@ export default function MedicationIntake({
               <option value="unknown">unknown</option>
             </select>
           </Field>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Deductible remaining">
+                      <input
+                        className="evidence-field ui-sans"
+                        placeholder="$1,200 or unknown"
+                        value={intake.deductibleRemaining}
+                        onChange={(event) => update("deductibleRemaining", event.target.value)}
+                      />
+                    </Field>
+                    <Field label="OOP remaining">
+                      <input
+                        className="evidence-field ui-sans"
+                        placeholder="$4,500 or unknown"
+                        value={intake.outOfPocketRemaining}
+                        onChange={(event) => update("outOfPocketRemaining", event.target.value)}
+                      />
+                    </Field>
+                  </div>
                 </Panel>
 
                 <Panel className="lg:col-span-5" title="Plan">
@@ -450,6 +497,24 @@ export default function MedicationIntake({
                         className="evidence-field ui-sans"
                         value={intake.planId}
                         onChange={(event) => update("planId", event.target.value)}
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Field label="Quantity / days supply">
+                      <input
+                        className="evidence-field ui-sans"
+                        placeholder="30 tablets / 30 days"
+                        value={intake.quantityDaysSupply}
+                        onChange={(event) => update("quantityDaysSupply", event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Preferred pharmacy">
+                      <input
+                        className="evidence-field ui-sans"
+                        placeholder="CVS, Walgreens, specialty pharmacy"
+                        value={intake.preferredPharmacy}
+                        onChange={(event) => update("preferredPharmacy", event.target.value)}
                       />
                     </Field>
                   </div>
@@ -783,6 +848,30 @@ function representativeDemoCase(demoCases: DemoCase[], scenarioId: ScenarioId) {
   );
 }
 
+function intakeWithDemoDetailDefaults(intake: MedicationIntakeData): MedicationIntakeData {
+  const text = `${intake.medicationName} ${intake.insuranceType} ${intake.pastedText}`.toLowerCase();
+  const medicare = text.includes("medicare");
+  const specialty =
+    text.includes("enbrel") ||
+    text.includes("skyrizi") ||
+    text.includes("humira") ||
+    text.includes("specialty");
+
+  return {
+    ...intake,
+    deductibleRemaining:
+      intake.deductibleRemaining || (medicare ? "$0 remaining" : "$1,500 remaining"),
+    outOfPocketRemaining:
+      intake.outOfPocketRemaining || (medicare ? "$2,000 remaining" : "$5,000 remaining"),
+    preferredPharmacy:
+      intake.preferredPharmacy ||
+      (specialty ? "Plan specialty pharmacy" : "Preferred retail pharmacy"),
+    quantityDaysSupply:
+      intake.quantityDaysSupply ||
+      (specialty ? "1 fill / specialty supply" : "30-day supply"),
+  };
+}
+
 function createRandomCase(): RandomCase {
   const template = randomFrom(RANDOM_MEDICATION_TEMPLATES);
   const quotedPriceCents =
@@ -800,8 +889,12 @@ function createRandomCase(): RandomCase {
     paStatus: template.paStatus,
     planName: randomFrom(template.planNames),
     planId: "",
+    deductibleRemaining: template.deductibleRemaining,
     diagnosis: template.diagnosis,
+    outOfPocketRemaining: template.outOfPocketRemaining,
     pastedText: template.pastedText,
+    preferredPharmacy: template.preferredPharmacy,
+    quantityDaysSupply: template.quantityDaysSupply,
   };
 
   return {
@@ -1058,8 +1151,22 @@ function withScenarioContext(
   const existingText = existingLines.join("\n").trim();
   const reasonText = caseReason.trim() || scenario.body;
   const scenarioLine = `${SCENARIO_NOTE_PREFIX} ${scenario.title}. ${reasonText} ${scenario.submitNote}`;
+  const structuredDetails = structuredCaseDetails(intake);
   return {
     ...intake,
-    pastedText: [scenarioLine, existingText].filter(Boolean).join("\n\n"),
+    pastedText: [scenarioLine, structuredDetails, existingText].filter(Boolean).join("\n\n"),
   };
+}
+
+function structuredCaseDetails(intake: MedicationIntakeData): string {
+  const details = [
+    ["Deductible remaining", intake.deductibleRemaining],
+    ["Out-of-pocket remaining", intake.outOfPocketRemaining],
+    ["Quantity / days supply", intake.quantityDaysSupply],
+    ["Preferred pharmacy", intake.preferredPharmacy],
+  ]
+    .filter(([, value]) => value.trim())
+    .map(([label, value]) => `${label}: ${value.trim()}`);
+
+  return details.length ? ["Structured intake details:", ...details].join("\n") : "";
 }

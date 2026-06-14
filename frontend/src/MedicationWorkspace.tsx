@@ -703,15 +703,16 @@ function TranscriptStatusRow({
 
 function TranscriptMessageRow({ message }: { message: ChatMessage }) {
   const user = message.role === "user";
+  const formatted = formatChatMessage(message);
   return (
     <section
       className={`ui-sans max-w-[54rem] text-sm leading-7 ${
         user
           ? "ml-auto border border-[#ef6844]/40 bg-[#302824] px-4 py-3 text-[#f7f2ec]"
-          : "whitespace-pre-wrap text-[#ded8d0]"
+          : "text-[#ded8d0]"
       }`}
     >
-      {formatChatMessage(message)}
+      {user ? formatted : <FormattedAssistantMessage content={formatted} />}
     </section>
   );
 }
@@ -733,8 +734,16 @@ function isPatientVisibleMessage(message: ChatMessage): boolean {
   if (
     lower.includes("get_session_context") ||
     lower.includes("run_case_preflight") ||
+    lower.includes("case classified as") ||
+    lower.includes("blocked route") ||
+    lower.includes("allowed route families") ||
+    lower.includes("missing facts") ||
+    lower.includes("missing whether you qualify facts") ||
+    lower.includes("persisting the start") ||
+    lower.includes("persisting the investigation") ||
     lower.includes("persist the investigation") ||
-    lower.includes("required by the preflight")
+    lower.includes("required by the preflight") ||
+    lower.includes("before ranking options")
   ) {
     return false;
   }
@@ -747,6 +756,63 @@ function formatChatMessage(message: ChatMessage): string {
   const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
   if (followUp !== content) return `I need one detail: ${patientFriendlyQuestion(followUp)}`;
   return patientFriendlyQuestion(content);
+}
+
+function FormattedAssistantMessage({ content }: { content: string }) {
+  const blocks = markdownishBlocks(content);
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, index) => {
+        if (block.kind === "list") {
+          return (
+            <ul className="list-disc space-y-1 pl-5" key={`${block.text}-${index}`}>
+              {block.items.map((item) => (
+                <li key={item}>{formatInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={`${block.text}-${index}`}>{formatInlineMarkdown(block.text)}</p>;
+      })}
+    </div>
+  );
+}
+
+type MarkdownishBlock =
+  | { kind: "paragraph"; text: string }
+  | { items: string[]; kind: "list"; text: string };
+
+function markdownishBlocks(content: string): MarkdownishBlock[] {
+  const normalized = content
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\s+-\s+/g, "\n- ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const lines = normalized.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const blocks: MarkdownishBlock[] = [];
+  let listItems: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("- ")) {
+      listItems.push(line.slice(2).trim());
+      continue;
+    }
+    if (listItems.length) {
+      blocks.push({ items: listItems, kind: "list", text: listItems.join(" ") });
+      listItems = [];
+    }
+    blocks.push({ kind: "paragraph", text: line });
+  }
+
+  if (listItems.length) {
+    blocks.push({ items: listItems, kind: "list", text: listItems.join(" ") });
+  }
+
+  return blocks.length ? blocks : [{ kind: "paragraph", text: normalized }];
+}
+
+function formatInlineMarkdown(text: string): string {
+  return text.replace(/\*\*(.*?)\*\*/g, "$1").trim();
 }
 
 function patientFriendlyQuestion(question: string): string {
@@ -795,6 +861,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
     ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
     : fallbackRouteText(packet);
   const nextStep = primaryNextStep(packet);
+  const nextSteps = nextStepsForPacket(packet);
   const evidenceLinks = evidenceLinksForPacket(packet);
 
   return (
@@ -834,7 +901,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-[#f7f2ec]">Next steps</h3>
         <ol className="list-decimal space-y-1 pl-5">
-          {packet.next_steps.map((step) => (
+          {nextSteps.map((step) => (
             <li key={step}>{step}</li>
           ))}
         </ol>
@@ -881,13 +948,47 @@ function patientFacingSummary(packet: CaseResultPacket): string {
 }
 
 function primaryNextStep(packet: CaseResultPacket): string {
-  if (packet.next_steps.length && !packet.next_steps[0].toLowerCase().startsWith("add the missing")) {
+  if (
+    packet.next_steps.length &&
+    !packet.next_steps[0].toLowerCase().startsWith("add the missing")
+  ) {
     return packet.next_steps[0];
   }
   if (isMedicareCase(packet)) {
     return "I can check the public support routes first; paste the pharmacy text or plan message only if you want the answer to be more patient-specific.";
   }
   return "I can check manufacturer support, cash prices, and plan-processing issues first; paste the pharmacy text only if you have it.";
+}
+
+function nextStepsForPacket(packet: CaseResultPacket): string[] {
+  const usefulPersistedSteps = packet.next_steps.filter(
+    (step) => !step.toLowerCase().startsWith("add the missing"),
+  );
+  if (usefulPersistedSteps.length) return usefulPersistedSteps;
+
+  if (isMedicareCase(packet)) {
+    return [
+      "Check whether the quote is deductible, coverage-stage, or tier driven in the Part D plan.",
+      "Screen Extra Help, state assistance, independent foundations, and manufacturer PAP/free-drug routes.",
+      "Use the Medicare Prescription Payment Plan if the issue is timing of the payment rather than total cost.",
+      "Ask the prescriber or plan about a formulary exception or covered alternative if support routes do not work.",
+    ];
+  }
+
+  if (packet.costs.quoted_price.cents > 0) {
+    return [
+      "Confirm the pharmacy ran the claim through the active insurance benefit.",
+      "Compare manufacturer support, cash discount pricing, and plan-preferred alternatives.",
+      "Check whether the deductible or out-of-pocket balance explains the quote before switching routes.",
+      "Use an appeal, exception, or prescriber alternative only if the benefit route stays unaffordable.",
+    ];
+  }
+
+  return [
+    "Check likely prior authorization, step therapy, quantity limit, and formulary tier blockers before pickup.",
+    "Compare covered alternatives and cash pricing before the first fill.",
+    "Confirm the pharmacy and quantity/day supply that will be used for the estimate.",
+  ];
 }
 
 function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{

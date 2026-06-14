@@ -11,8 +11,12 @@ export type MedicationIntakeData = {
   paStatus: PaStatus;
   planName: string;
   planId: string;
+  deductibleRemaining: string;
   diagnosis: string;
+  outOfPocketRemaining: string;
   pastedText: string;
+  preferredPharmacy: string;
+  quantityDaysSupply: string;
 };
 
 export type DemoCase = {
@@ -129,8 +133,12 @@ export function blankMedicationIntake(): MedicationIntakeData {
     paStatus: "unknown",
     planName: "",
     planId: "",
+    deductibleRemaining: "",
     diagnosis: "",
+    outOfPocketRemaining: "",
     pastedText: "",
+    preferredPharmacy: "",
+    quantityDaysSupply: "",
   };
 }
 
