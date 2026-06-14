@@ -315,17 +315,17 @@ export default function MedicationIntake({
         <section className="flex min-w-0 flex-1 flex-col justify-start py-0">
           <div className="w-full min-w-0">
             <div className="mx-auto w-full max-w-[880px] text-center">
-              <div className="inline-flex w-full max-w-full min-w-0 flex-col items-center gap-1 sm:w-auto sm:flex-row sm:justify-center sm:gap-0">
+              <div className="inline-flex w-full max-w-full min-w-0 flex-col items-center justify-center gap-0 sm:w-auto sm:flex-row">
                 <img
-                  className="h-40 w-40 shrink-0 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-10 sm:h-52 sm:w-52 lg:-mr-12 lg:h-56 lg:w-56"
+                  className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_1px_rgb(247_242_236/0.65)] sm:-mr-5 sm:h-36 sm:w-36 lg:-mr-6 lg:h-40 lg:w-40"
                   src={PRODUCT_LOGO_SRC}
                   alt={`${PRODUCT_NAME} logo`}
                 />
-                <h1 className="max-w-full min-w-0 break-words text-center text-[2.25rem] font-semibold leading-none tracking-[-0.045em] text-[#f7f2ec] min-[430px]:text-[2.7rem] sm:text-6xl lg:text-7xl">
+                <h1 className="max-w-full min-w-0 break-words text-center text-[2.45rem] font-semibold leading-none tracking-[-0.045em] text-[#f7f2ec] min-[430px]:text-[2.9rem] sm:text-6xl lg:text-[4.75rem]">
                   {PRODUCT_NAME}
                 </h1>
               </div>
-              <p className="ui-sans mx-auto mt-6 w-full max-w-[50rem] break-words px-1 text-base leading-7 text-[#c7c0b8] sm:text-lg sm:leading-8">
+              <p className="ui-sans mx-auto mt-1 w-full max-w-[46rem] break-words px-1 text-base leading-7 text-[#c7c0b8] sm:text-lg sm:leading-8">
                 Fill the case, explain what happened, and CopayGuard routes the safest next move
                 before the price becomes a surprise.
               </p>
@@ -916,7 +916,7 @@ function randomCents(minCents: number, maxCents: number): number {
 
 function ProductExplainer() {
   return (
-    <section className="mt-12 grid min-w-0 gap-8 lg:grid-cols-3">
+    <section className="mt-8 grid min-w-0 gap-8 sm:mt-10 lg:grid-cols-3">
       <ExplainerStep
         number="1"
         title="Fill in your information"
@@ -951,12 +951,12 @@ function ExplainerStep({
   visual: React.ReactNode;
 }) {
   return (
-    <article className="infographic-step min-w-0">
+    <article className="infographic-step min-w-0 text-center">
       <p className="infographic-step-number">{number}</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#f7f2ec] sm:text-3xl lg:text-[2rem]">
+      <h2 className="mx-auto mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#f7f2ec] sm:text-3xl lg:text-[2rem]">
         {title}
       </h2>
-      <p className="ui-sans mt-3 max-w-[29rem] break-words text-[0.95rem] leading-6 text-[#c7c0b8]">
+      <p className="ui-sans mx-auto mt-3 max-w-[29rem] break-words text-[0.95rem] leading-6 text-[#c7c0b8]">
         {body}
       </p>
       <div className="infographic-visual mt-6 min-w-0">{visual}</div>
