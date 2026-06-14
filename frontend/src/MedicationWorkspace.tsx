@@ -61,19 +61,22 @@ export default function MedicationWorkspace({ snapshot, setSnapshot }: Props) {
         if (event.type === "agent_delta") {
           return {
             ...current,
-            messages: applyAssistantDelta(
-              current.messages,
-              String(payload.delta ?? ""),
-            ),
             status: "investigating",
           };
         }
         if (event.type === "agent_message") {
+          const content = String(payload.content ?? "");
+          if (!isPatientVisibleAssistantContent(content)) {
+            return {
+              ...current,
+              messages: current.messages.filter((item) => item.id !== STREAMING_ASSISTANT_ID),
+            };
+          }
           return {
             ...current,
             messages: applyFinalAssistantMessage(
               current.messages,
-              String(payload.content ?? ""),
+              content,
             ),
           };
         }
@@ -719,9 +722,18 @@ function TranscriptMessageRow({ message }: { message: ChatMessage }) {
 
 function isPatientVisibleMessage(message: ChatMessage): boolean {
   if (message.role === "user") return message.content.trim().length > 0;
-  const content = message.content.trim();
-  const lower = content.toLowerCase();
-  if (!content) return false;
+  return isPatientVisibleAssistantContent(message.content);
+}
+
+function isPatientVisibleAssistantContent(content: string): boolean {
+  const trimmed = content.trim();
+  const lower = trimmed.toLowerCase();
+  if (!trimmed) return false;
+  if (isInternalAssistantNarration(lower)) return false;
+  return true;
+}
+
+function isInternalAssistantNarration(lower: string): boolean {
   if (
     (lower.startsWith("i'll now") || lower.startsWith("i will now")) &&
     (lower.includes("persist") ||
@@ -729,29 +741,38 @@ function isPatientVisibleMessage(message: ChatMessage): boolean {
       lower.includes("tool") ||
       lower.includes("state"))
   ) {
-    return false;
+    return true;
   }
   if (
     lower.includes("get_session_context") ||
     lower.includes("run_case_preflight") ||
+    lower.includes("investigation started for") ||
+    lower.includes("key intake confirmed") ||
     lower.includes("case classified as") ||
+    lower.includes("case moment:") ||
     lower.includes("blocked route") ||
     lower.includes("allowed route families") ||
+    lower.includes("current cost tracker") ||
+    lower.includes("current cost tracker status") ||
     lower.includes("missing facts") ||
     lower.includes("missing whether you qualify facts") ||
+    lower.includes("next required fact") ||
+    lower.includes("i have asked the patient") ||
+    lower.includes("i will continue routing") ||
+    lower.includes("no price reduction is claimed") ||
     lower.includes("persisting the start") ||
     lower.includes("persisting the investigation") ||
     lower.includes("persist the investigation") ||
     lower.includes("required by the preflight") ||
     lower.includes("before ranking options")
   ) {
-    return false;
+    return true;
   }
-  return true;
+  return false;
 }
 
 function formatChatMessage(message: ChatMessage): string {
-  if (message.role === "user") return `You: ${message.content}`;
+  if (message.role === "user") return message.content;
   const content = message.content.trim();
   const followUp = content.replace(/^I need one detail:\s*/i, "").trim();
   if (followUp !== content) return `I need one detail: ${patientFriendlyQuestion(followUp)}`;
@@ -1234,12 +1255,23 @@ function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
 }
 
 function latestFollowUpQuestion(messages: ChatMessage[]): string | null {
-  const question = [...messages]
-    .reverse()
-    .find((message) =>
-      message.content.trim().toLowerCase().startsWith("i need one detail:"),
-    );
-  return question?.content.replace(/^I need one detail:\s*/i, "").trim() || null;
+  let latestQuestionText = "";
+  let latestQuestionIndex = -1;
+  let latestUserIndex = -1;
+
+  messages.forEach((message, index) => {
+    if (message.role === "user") {
+      latestUserIndex = index;
+      return;
+    }
+    if (message.content.trim().toLowerCase().startsWith("i need one detail:")) {
+      latestQuestionText = message.content.replace(/^I need one detail:\s*/i, "").trim();
+      latestQuestionIndex = index;
+    }
+  });
+
+  if (!latestQuestionText || latestUserIndex > latestQuestionIndex) return null;
+  return latestQuestionText;
 }
 
 function extractActionItems(content: string): string[] {
@@ -1515,25 +1547,6 @@ function assistantMessage(content: string, index: number): ChatMessage {
     content,
     createdAt: new Date().toISOString(),
   };
-}
-
-function applyAssistantDelta(messages: ChatMessage[], delta: string): ChatMessage[] {
-  if (!delta) return messages;
-  const index = messages.findIndex((message) => message.id === STREAMING_ASSISTANT_ID);
-  if (index === -1) {
-    return [
-      ...messages,
-      {
-        id: STREAMING_ASSISTANT_ID,
-        role: "assistant",
-        content: delta,
-        createdAt: new Date().toISOString(),
-      },
-    ];
-  }
-  return messages.map((message, messageIndex) =>
-    messageIndex === index ? { ...message, content: `${message.content}${delta}` } : message,
-  );
 }
 
 function applyFinalAssistantMessage(messages: ChatMessage[], content: string): ChatMessage[] {
