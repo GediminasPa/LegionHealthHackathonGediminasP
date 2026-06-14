@@ -147,6 +147,9 @@ def build_medication_agent_prompt(
             "activity, and artifact you create.",
             "Do not claim a price reduction unless a tool-persisted source supports it; "
             "use unknown or needs_user_confirmation when eligibility is unresolved.",
+            "Treat user-entered intake fields, pasted plan/pharmacy text, and recent user chat "
+            "answers as correct working facts for this demo. Do not ask the patient to confirm "
+            "a value they already gave you.",
             "Write patient-facing text in plain English. Do not ask the patient to identify "
             "insurance jargon such as accumulator, maximizer, PA, ST, QL, formulary tier, "
             "or OOP max. Ask for visible facts, messages, documents, or permission to "
@@ -182,6 +185,21 @@ def build_medication_agent_prompt(
 def patient_display_name(patient_name: str | None, fallback: str = "the patient") -> str:
     value = (patient_name or "").strip()
     return value or fallback
+
+
+async def _combined_user_provided_text(
+    session: AsyncSession, session_id: int, pasted_text: str | None
+) -> str:
+    messages = (
+        await session.scalars(
+            select(MedicationAffordabilityMessage)
+            .where(MedicationAffordabilityMessage.session_id == session_id)
+            .order_by(MedicationAffordabilityMessage.created_at, MedicationAffordabilityMessage.id)
+        )
+    ).all()
+    parts = [pasted_text or ""]
+    parts.extend(message.content for message in messages if message.role == "user")
+    return "\n".join(part.strip() for part in parts if part and part.strip())
 
 
 @medication_affordability_agent.tool(sequential=True)
@@ -250,7 +268,15 @@ async def run_case_preflight(ctx: RunContext[MedicationAgentDeps]) -> dict[str, 
     """Run deterministic case classification, eligibility routing, and specialist planning."""
     ctx.deps.emit("tool_call", {"name": "run_case_preflight", "args": {}})
     intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
-    analysis = analyze_case(_intake_create_from_model(intake))
+    intake_data = _intake_create_from_model(intake)
+    intake_data = intake_data.model_copy(
+        update={
+            "pasted_text": await _combined_user_provided_text(
+                ctx.deps.session, ctx.deps.session_id, intake.pasted_text
+            )
+        }
+    )
+    analysis = analyze_case(intake_data)
     payload = analysis.model_dump(mode="json")
     patch = {
         "case_moment": analysis.case_moment,
@@ -508,7 +534,13 @@ async def ask_question(
     choices: list[str] | None = None,
 ) -> dict[str, Any]:
     """Persist and stream a follow-up question when eligibility facts are missing."""
-    question = patient_friendly_question(question)
+    intake = await _get_intake(ctx.deps.session, ctx.deps.session_id)
+    intake_facts = extract_facts_from_pasted_text(
+        await _combined_user_provided_text(
+            ctx.deps.session, ctx.deps.session_id, intake.pasted_text
+        )
+    )
+    question = patient_friendly_question(question, facts=intake_facts)
     if ctx.deps.asked_question:
         return ctx.deps.question_payload or {
             "question": question,
@@ -537,16 +569,28 @@ async def ask_question(
     return payload
 
 
-def patient_friendly_question(question: str) -> str:
+def patient_friendly_question(question: str, *, facts: dict[str, Any] | None = None) -> str:
     value = " ".join(question.strip().split())
     lower = value.lower()
     if (
         "part d" in lower
         and ("out-of-pocket" in lower or "oop" in lower)
-        and ("processed" in lower or "adjudicated" in lower or "pharmacy" in lower)
+        and (
+            "processed" in lower
+            or "adjudicated" in lower
+            or "pharmacy" in lower
+            or "claim" in lower
+            or "submitted" in lower
+        )
     ):
+        oop_remaining_is_provided = bool(facts and facts.get("has_oop_remaining_signal"))
+        if oop_remaining_is_provided or "pasted text shows" in lower or "pasted text says" in lower:
+            return (
+                "Has the pharmacy already run this prescription through your Medicare Part D plan? "
+                "If you are not sure, paste the pharmacy text or plan message."
+            )
         return (
-            "Has the pharmacy already run this Enbrel claim through your Medicare Part D plan?\n"
+            "Has the pharmacy already run this prescription through your Medicare Part D plan?\n"
             "- If you know it, include how much has already counted toward your yearly Part D "
             "out-of-pocket total.\n"
             "- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. "

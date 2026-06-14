@@ -15,6 +15,7 @@ from app.agents.medication_affordability import (
     analyze_case,
     extract_facts_from_pasted_text,
     medication_affordability_agent,
+    patient_friendly_question,
     public_program_copay_guardrail,
 )
 from app.config import get_settings
@@ -137,6 +138,41 @@ async def test_resource_connection_catalog_endpoint(client: httpx.AsyncClient) -
     assert all(resource["category"] != "Agent runtime" for resource in resources)
     assert all(resource["status"] for resource in resources)
     assert all(resource["category"] for resource in resources)
+
+
+def test_preflight_treats_entered_oop_remaining_as_provided() -> None:
+    payload = _demo_payload()["intake"]
+    assert isinstance(payload, dict)
+    payload["pasted_text"] = "Plan text says Part D out-of-pocket remaining is $2,000."
+
+    analysis = analyze_case(MedicationAffordabilityIntakeCreate.model_validate(payload))
+
+    assert analysis.extracted_facts.has_oop_remaining_signal is True
+    assert "current_part_d_oop_progress" not in analysis.missing_facts
+    assert "deductible_or_oop_remaining" not in analysis.missing_facts
+
+
+def test_freeform_oop_progress_answer_counts_as_provided() -> None:
+    facts = extract_facts_from_pasted_text("1000 out of 2000 have been met")
+
+    assert facts["has_oop_remaining_signal"] is True
+
+
+def test_part_d_question_does_not_reconfirm_entered_remaining_amount() -> None:
+    question = (
+        "Can you confirm the current Part D out-of-pocket progress or remaining "
+        "(pasted text shows $2,000 remaining)? Also, has the claim been submitted "
+        "to the plan yet?"
+    )
+
+    friendly = patient_friendly_question(question, facts={"has_oop_remaining_signal": True})
+
+    assert friendly == (
+        "Has the pharmacy already run this prescription through your Medicare Part D plan? "
+        "If you are not sure, paste the pharmacy text or plan message."
+    )
+    assert "$2,000" not in friendly
+    assert "confirm the current Part D" not in friendly
 
 
 async def test_session_create_read_and_message_append(client: httpx.AsyncClient) -> None:

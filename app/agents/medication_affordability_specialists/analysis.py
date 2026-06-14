@@ -93,6 +93,20 @@ def analyze_case(intake: MedicationAffordabilityIntakeCreate) -> CaseAnalysis:
     missing_facts = list(
         dict.fromkeys(insurance_route.missing_facts + _moment_missing_facts(case_moment))
     )
+    if facts.has_oop_remaining_signal:
+        missing_facts = [
+            fact
+            for fact in missing_facts
+            if fact
+            not in {
+                "current_part_d_oop_progress",
+                "deductible_or_oop_remaining",
+                "deductible_remaining",
+                "oop_remaining",
+            }
+        ]
+    if facts.has_claim_status_signal:
+        missing_facts = [fact for fact in missing_facts if fact != "pharmacy_claim_status"]
     blocked_routes = list(dict.fromkeys(insurance_route.blocked_routes))
     return CaseAnalysis(
         case_moment=case_moment,

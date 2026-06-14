@@ -742,8 +742,18 @@ function shortFollowUpQuestion(question: string): string {
   if (
     lower.includes("part d") &&
     (lower.includes("out-of-pocket") || lower.includes("oop")) &&
-    (lower.includes("processed") || lower.includes("adjudicated") || lower.includes("pharmacy"))
+    (lower.includes("processed") ||
+      lower.includes("adjudicated") ||
+      lower.includes("pharmacy") ||
+      lower.includes("claim") ||
+      lower.includes("submitted"))
   ) {
+    if (lower.includes("pasted text shows") || lower.includes("pasted text says")) {
+      return (
+        "Has the pharmacy already run this prescription through your Medicare Part D plan? " +
+        "If you are not sure, paste the pharmacy text or plan message."
+      );
+    }
     return partDProgressQuestion();
   }
   if (lower.includes("household income") && lower.includes("household size")) {
@@ -824,8 +834,18 @@ function patientFriendlyQuestion(question: string): string {
   if (
     lower.includes("part d") &&
     (lower.includes("out-of-pocket") || lower.includes("oop")) &&
-    (lower.includes("processed") || lower.includes("adjudicated") || lower.includes("pharmacy"))
+    (lower.includes("processed") ||
+      lower.includes("adjudicated") ||
+      lower.includes("pharmacy") ||
+      lower.includes("claim") ||
+      lower.includes("submitted"))
   ) {
+    if (lower.includes("pasted text shows") || lower.includes("pasted text says")) {
+      return (
+        "Has the pharmacy already run this prescription through your Medicare Part D plan? " +
+        "If you are not sure, paste the pharmacy text or plan message."
+      );
+    }
     return partDProgressQuestion();
   }
   if (lower.includes("household income") && lower.includes("household size")) {
@@ -858,7 +878,7 @@ function patientFriendlyQuestion(question: string): string {
 
 function partDProgressQuestion(): string {
   return [
-    "Has the pharmacy already run this Enbrel claim through your Medicare Part D plan?",
+    "Has the pharmacy already run this prescription through your Medicare Part D plan?",
     "- If you know it, include how much has already counted toward your yearly Part D out-of-pocket total.",
     '- Where to find it: your plan app or website, a pharmacy receipt, or an EOB. Look for "out-of-pocket", "TrOOP", or "amount toward yearly cap". If unsure, paste the wording.',
   ].join("\n");

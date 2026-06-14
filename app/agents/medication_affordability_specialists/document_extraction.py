@@ -53,6 +53,30 @@ REJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("full_cost", re.compile(r"\bfull cost\b|\bcash price\b", re.IGNORECASE)),
 ]
 
+OOP_REMAINING_PATTERN = re.compile(
+    r"(?:"
+    r"(?:out[- ]of[- ]pocket|oop|tr?oop|part d|yearly cap|deductible)"
+    r".{0,100}"
+    r"(?:remaining|left|met|spent|paid|progress|toward|to go)"
+    r"|"
+    r"(?:remaining|left|met|spent|paid|progress|toward|to go)"
+    r".{0,100}"
+    r"(?:out[- ]of[- ]pocket|oop|tr?oop|part d|yearly cap|deductible)"
+    r"|"
+    r"\$?\d[\d,]*(?:\.\d{2})?\s+out\s+of\s+\$?\d[\d,]*(?:\.\d{2})?"
+    r")",
+    re.IGNORECASE,
+)
+
+CLAIM_STATUS_PATTERN = re.compile(
+    r"(?:claim|pharmacy|rx|prescription).{0,80}"
+    r"(?:submitted|processed|adjudicated|run through|ran through|billed|rejected|approved|denied)"
+    r"|"
+    r"(?:submitted|processed|adjudicated|run through|ran through|billed|rejected|approved|denied)"
+    r".{0,80}(?:claim|pharmacy|rx|prescription|plan|insurance)",
+    re.IGNORECASE,
+)
+
 
 def extract_facts_from_pasted_text(text: str | None) -> ExtractedTextFacts:
     value = text or ""
@@ -98,6 +122,8 @@ def extract_facts_from_pasted_text(text: str | None) -> ExtractedTextFacts:
             }
             for flag in deduped_flags
         ),
+        has_oop_remaining_signal=bool(OOP_REMAINING_PATTERN.search(value)),
+        has_claim_status_signal=bool(CLAIM_STATUS_PATTERN.search(value)),
         has_pa_or_denial_signal=bool(pa_flags or rejection_flags),
         has_rejection_signal=bool(rejection_flags),
         detected_vendors=list(dict.fromkeys(detected_vendors)),

@@ -38,6 +38,8 @@ SpecialistName = Literal[
 class ExtractedTextFacts(BaseModel):
     flags: list[str] = Field(default_factory=list)
     has_accumulator_signal: bool = False
+    has_oop_remaining_signal: bool = False
+    has_claim_status_signal: bool = False
     has_pa_or_denial_signal: bool = False
     has_rejection_signal: bool = False
     detected_vendors: list[str] = Field(default_factory=list)
