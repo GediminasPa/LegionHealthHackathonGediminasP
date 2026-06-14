@@ -120,6 +120,9 @@ type ApiMedicationResourceConnection = {
   logo_url: string | null;
 };
 
+const LOCAL_SESSION_PREFIX = "local-demo-";
+const localSessionIntakes = new Map<string, MedicationIntakeData>();
+
 export async function getMedicationDemoCases(): Promise<DemoCase[]> {
   const res = await fetch("/api/medication-affordability/demo-cases");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -156,14 +159,21 @@ export async function getMedicationResources(): Promise<MedicationResourceConnec
 export async function createMedicationSession(
   intake: MedicationIntakeData,
 ): Promise<{ sessionId: string }> {
-  const res = await fetch("/api/medication-affordability/sessions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ intake: toApiIntake(intake) }),
-  });
-  if (!res.ok) throw await errorFromResponse(res);
-  const body = await res.json();
-  return { sessionId: String(body.session_id) };
+  try {
+    const res = await fetch("/api/medication-affordability/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intake: toApiIntake(intake) }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      return { sessionId: String(body.session_id) };
+    }
+    if (res.status < 500) throw await errorFromResponse(res);
+  } catch (error) {
+    if (error instanceof Error && !shouldUseLocalDemoFallback(error)) throw error;
+  }
+  return createLocalMedicationSession(intake);
 }
 
 export async function getMedicationSession(sessionId: string): Promise<MedicationSnapshot> {
@@ -193,6 +203,7 @@ export async function getMedicationSession(sessionId: string): Promise<Medicatio
 }
 
 export async function postMedicationMessage(sessionId: string, content: string): Promise<void> {
+  if (isLocalMedicationSession(sessionId)) return;
   const res = await fetch(`/api/medication-affordability/sessions/${sessionId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -206,6 +217,11 @@ export async function* streamMedicationRun(
   mode: "agent" | "mock" = "agent",
   signal?: AbortSignal,
 ): AsyncGenerator<MedicationRunEvent> {
+  if (isLocalMedicationSession(sessionId)) {
+    yield* streamLocalMedicationRun(sessionId, signal);
+    return;
+  }
+
   const res = await fetch(`/api/medication-affordability/sessions/${sessionId}/runs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -232,6 +248,239 @@ export async function* streamMedicationRun(
   }
   const finalEvent = parseMedicationEvent(buffer);
   if (finalEvent) yield finalEvent;
+}
+
+function createLocalMedicationSession(intake: MedicationIntakeData): { sessionId: string } {
+  const sessionId = `${LOCAL_SESSION_PREFIX}${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  localSessionIntakes.set(sessionId, intake);
+  return { sessionId };
+}
+
+function isLocalMedicationSession(sessionId: string): boolean {
+  return sessionId.startsWith(LOCAL_SESSION_PREFIX);
+}
+
+function shouldUseLocalDemoFallback(error: Error): boolean {
+  return error.message === "Failed to fetch" || error.message.startsWith("HTTP 5");
+}
+
+async function* streamLocalMedicationRun(
+  sessionId: string,
+  signal?: AbortSignal,
+): AsyncGenerator<MedicationRunEvent> {
+  const intake = localSessionIntakes.get(sessionId) ?? blankLocalIntake();
+  const sourcePayloads = localSourcePayloads(intake);
+  const sourceIds = sourcePayloads.map((source) => String(source.id));
+  const option = localOptionPayload(intake, sourceIds);
+  const costTracker = localCostTrackerPayload(intake, sourceIds);
+  const artifact = localArtifactPayload(intake, sourceIds);
+
+  const events: MedicationRunEvent[] = [
+    {
+      type: "activity_started",
+      payload: {
+        id: "local-intake",
+        title: "Reading intake and plan text",
+        summary: "CopayGuard is extracting coverage, price, and assistance signals.",
+      },
+    },
+    {
+      type: "agent_message",
+      payload: {
+        content: `I am checking ${intake.medicationName || "this medication"} across coverage, cash, assistance, and appeal routes.`,
+      },
+    },
+    ...sourcePayloads.map((payload) => ({ type: "source_added", payload })),
+    { type: "option_added", payload: option },
+    { type: "cost_tracker_update", payload: costTracker },
+    {
+      type: "artifact_created",
+      payload: artifact,
+    },
+    {
+      type: "activity_completed",
+      payload: {
+        id: "local-summary",
+        title: "Prepared next-step summary",
+        summary: "A demo affordability route is ready for review.",
+      },
+    },
+    { type: "run_done", payload: { status: "completed" } },
+  ];
+
+  for (const event of events) {
+    if (signal?.aborted) return;
+    await delay(220);
+    yield event;
+  }
+}
+
+function blankLocalIntake(): MedicationIntakeData {
+  return {
+    patientName: "",
+    state: "CA",
+    medicationName: "Medication",
+    strength: "",
+    dose: "",
+    quotedPriceCents: 0,
+    insuranceType: "Commercial",
+    paStatus: "unknown",
+    planName: "",
+    planId: "",
+    diagnosis: "",
+    pastedText: "",
+  };
+}
+
+function localSourcePayloads(intake: MedicationIntakeData): Array<Record<string, unknown>> {
+  const baseSources = [
+    {
+      id: "local-rxnav",
+      title: "RxNorm / RxNav",
+      url: "https://rxnav.nlm.nih.gov/",
+      publisher: "rxnav.nlm.nih.gov",
+      summary: "Drug identity and naming normalization for the medication under review.",
+    },
+    {
+      id: "local-openfda",
+      title: "openFDA NDC Directory",
+      url: "https://open.fda.gov/apis/drug/ndc/",
+      publisher: "open.fda.gov",
+      summary: "Product, labeler, and packaging context for drug records.",
+    },
+    {
+      id: "local-goodrx",
+      title: "GoodRx cash discount context",
+      url: "https://www.goodrx.com/",
+      publisher: "goodrx.com",
+      summary: "Cash discount comparison path with deductible and out-of-pocket caveats.",
+    },
+  ];
+
+  if (intake.insuranceType.toLowerCase().includes("medicare")) {
+    baseSources.push({
+      id: "local-medicare",
+      title: "Medicare Extra Help",
+      url: "https://www.ssa.gov/medicare/part-d-extra-help",
+      publisher: "ssa.gov",
+      summary: "Screening route for Part D low-income subsidy support.",
+    });
+  } else {
+    baseSources.push({
+      id: "local-covermymeds",
+      title: "CoverMyMeds ePA",
+      url: "https://www.covermymeds.com/",
+      publisher: "covermymeds.com",
+      summary: "Prior authorization and appeal execution path for covered-benefit cases.",
+    });
+  }
+
+  return baseSources.map((source) => ({
+    ...source,
+    source_type: "local_demo_resource",
+    checked_at: new Date().toISOString(),
+    confidence: 0.78,
+  }));
+}
+
+function localOptionPayload(
+  intake: MedicationIntakeData,
+  sourceIds: string[],
+): Record<string, unknown> {
+  const text = `${intake.pastedText} ${intake.insuranceType}`.toLowerCase();
+  if (text.includes("deductible") || text.includes("out-of-pocket")) {
+    return {
+      id: "local-accumulator-check",
+      title: "Accumulator and coupon impact check",
+      rank: 1,
+      summary:
+        "Confirm whether the coupon lowers today's charge without counting toward deductible or out-of-pocket progress.",
+      confidence: "needs_user_confirmation",
+      drop_type: "unknown",
+      source_ids: sourceIds,
+    };
+  }
+  if (intake.insuranceType.toLowerCase().includes("medicare")) {
+    return {
+      id: "local-medicare-route",
+      title: "Medicare smoothing and subsidy screen",
+      rank: 1,
+      summary:
+        "Check Extra Help and Medicare Prescription Payment Plan before treating the quote as the final cash burden.",
+      confidence: "needs_user_confirmation",
+      drop_type: "cash_flow_smoothing",
+      source_ids: sourceIds,
+    };
+  }
+  if (intake.quotedPriceCents <= 0) {
+    return {
+      id: "local-prefill-check",
+      title: "Pre-fill price and coverage check",
+      rank: 1,
+      summary:
+        "Check likely PA, tier, quantity, pharmacy, cash, and covered-alternative routes before pickup.",
+      confidence: "needs_user_confirmation",
+      drop_type: "unknown",
+      source_ids: sourceIds,
+    };
+  }
+  return {
+    id: "local-commercial-route",
+    title: "Commercial price route comparison",
+    rank: 1,
+    summary:
+      "Compare insurance processing, cash pricing, manufacturer support, exception request, and prescriber alternatives.",
+    confidence: "eligibility_unknown",
+    drop_type: "price_reduction",
+    source_ids: sourceIds,
+  };
+}
+
+function localCostTrackerPayload(
+  intake: MedicationIntakeData,
+  sourceIds: string[],
+): Record<string, unknown> {
+  const hasQuote = intake.quotedPriceCents > 0;
+  const estimated = hasQuote ? Math.max(2500, Math.round(intake.quotedPriceCents * 0.35)) : null;
+  return {
+    quoted_price_cents: intake.quotedPriceCents,
+    current_best_label: hasQuote ? "Demo best route estimate" : "Estimate before first fill",
+    current_best_estimated_price_cents: estimated,
+    potential_drop_cents: estimated == null ? null : Math.max(0, intake.quotedPriceCents - estimated),
+    drop_type: hasQuote ? "price_reduction" : "unknown",
+    confidence: hasQuote ? "eligibility_unknown" : "needs_user_confirmation",
+    explanation:
+      "Demo mode is ranking likely affordability routes from public and curated healthcare sources. Confirm coverage, eligibility, pharmacy, and deductible or out-of-pocket impact before treating any estimate as a claim result.",
+    source_ids: sourceIds,
+  };
+}
+
+function localArtifactPayload(
+  intake: MedicationIntakeData,
+  sourceIds: string[],
+): Record<string, unknown> {
+  return {
+    id: "local-next-step-checklist",
+    artifact_type: "checklist",
+    title: `${intake.medicationName || "Medication"} affordability checklist`,
+    content: [
+      "1. Ask the pharmacy to rerun the claim through the active insurance benefit.",
+      "2. Confirm PA, step therapy, quantity limits, preferred pharmacy, and deductible status.",
+      "3. Compare cash pricing only after checking whether it counts toward deductible or out-of-pocket maximum.",
+      "4. Screen manufacturer, foundation, Extra Help, or appeal routes based on insurance type.",
+      "5. Keep prescriber-reviewed alternatives ready if the covered route stays unaffordable.",
+    ].join("\n"),
+    status: "ready",
+    source_ids: sourceIds,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function parseMedicationEvent(raw: string): MedicationRunEvent | null {
