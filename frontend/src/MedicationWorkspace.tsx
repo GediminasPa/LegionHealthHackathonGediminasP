@@ -698,11 +698,14 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
     packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
       ? null
       : packet.costs.potential_savings.formatted;
+  const hasLowerVerifiedPrice =
+    packet.costs.best_price.cents != null &&
+    packet.costs.best_price.cents < packet.costs.quoted_price.cents;
   const priceRead = [
     `The pharmacy quote is ${packet.costs.quoted_price.formatted}.`,
-    packet.costs.best_price.cents == null
-      ? "I do not have a verified lower route yet."
-      : `The best verified estimate right now is ${packet.costs.best_price.formatted}.`,
+    hasLowerVerifiedPrice
+      ? `The best verified estimate right now is ${packet.costs.best_price.formatted}.`
+      : "I do not yet have a verified lower patient-specific price than that quote.",
     potentialSavings ? `That is a potential savings of ${potentialSavings}.` : null,
   ]
     .filter(Boolean)
@@ -710,7 +713,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
   const routeText = packet.best_route
     ? `Best route so far: ${packet.best_route.title}. ${packet.best_route.summary}`
     : fallbackRouteText(packet);
-  const nextStep = packet.next_steps[0] ?? "Confirm the missing pharmacy or plan details.";
+  const nextStep = primaryNextStep(packet);
 
   return (
     <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
@@ -718,7 +721,7 @@ function AgentAnswerText({ packet }: { packet: CaseResultPacket }) {
         Reviewing {packet.case.medication || "this medication"} for {packet.case.insurance}.
       </p>
 
-      <p>{packet.what_we_found}</p>
+      <p>{patientFacingSummary(packet)}</p>
       <p>{priceRead}</p>
       <p>{routeText}</p>
       <p>Next: {nextStep}</p>
@@ -760,20 +763,20 @@ function SuggestionsDisclosure({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-[#f7f2ec]">Evidence links</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-1.5">
             {evidenceLinks.map((source) => (
               <a
-                className="button-press block min-w-0 border border-white/12 bg-[#1f1e1d] p-3 text-[#f7f2ec] hover:border-[#ef6844]/70"
+                className="button-press grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border border-white/12 bg-[#1f1e1d] px-3 py-2 text-[#f7f2ec] hover:border-[#ef6844]/70"
                 href={source.url}
                 key={`${source.title}-${source.url}`}
                 rel="noreferrer"
                 target="_blank"
               >
-                <span className="block truncate text-sm font-semibold">{source.title}</span>
-                <span className="mt-1 block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
+                <span className="truncate text-xs font-semibold">{source.title}</span>
+                <span className="text-[0.64rem] font-semibold uppercase tracking-[0.08em] text-[#ef6844]">
                   {source.status}
                 </span>
-                <span className="mt-2 line-clamp-2 block text-xs leading-5 text-[#c7c0b8]">
+                <span className="col-span-2 line-clamp-1 text-xs leading-5 text-[#c7c0b8]">
                   {source.summary}
                 </span>
               </a>
@@ -794,6 +797,37 @@ function SuggestionsDisclosure({
   );
 }
 
+function patientFacingSummary(packet: CaseResultPacket): string {
+  if (packet.best_route) {
+    return "I found a route worth trying first and kept backup checks ready.";
+  }
+  if (isMedicareCase(packet)) {
+    return [
+      "This looks like a high Medicare specialty-drug quote.",
+      "The useful path is not a generic coupon hunt; it is checking the plan rule, assistance foundations,",
+      "free-drug/PAP options, and monthly payment smoothing.",
+    ].join(" ");
+  }
+  if (packet.costs.quoted_price.cents > 0) {
+    return [
+      "This looks like a high pharmacy quote.",
+      "I would first check whether insurance processed it correctly, then compare manufacturer support,",
+      "cash pricing, and covered alternatives.",
+    ].join(" ");
+  }
+  return packet.what_we_found;
+}
+
+function primaryNextStep(packet: CaseResultPacket): string {
+  if (packet.next_steps.length && !packet.next_steps[0].toLowerCase().startsWith("add the missing")) {
+    return packet.next_steps[0];
+  }
+  if (isMedicareCase(packet)) {
+    return "I can check the public support routes first; paste the pharmacy text or plan message only if you want the answer to be more patient-specific.";
+  }
+  return "I can check manufacturer support, cash prices, and plan-processing issues first; paste the pharmacy text only if you have it.";
+}
+
 function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
   title: string;
   url: string;
@@ -802,6 +836,47 @@ function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
 }> {
   const medication = packet.case.medication || "medication";
   const medicationQuery = encodeURIComponent(medication);
+  if (isMedicareCase(packet)) {
+    return [
+      {
+        title: "Medicare Part D costs",
+        url: "https://www.medicare.gov/drug-coverage-part-d/costs-for-medicare-drug-coverage",
+        summary: "Use this to explain deductible, cost-sharing, and out-of-pocket rules.",
+        status: "Verify",
+      },
+      {
+        title: "Medicare Prescription Payment Plan",
+        url: "https://www.medicare.gov/prescription-payment-plan",
+        summary: "Can spread large Part D drug costs across the year; not a price reduction.",
+        status: "Check",
+      },
+      {
+        title: "Medicare Extra Help",
+        url: "https://www.ssa.gov/medicare/part-d-extra-help",
+        summary: "Screen for low-income subsidy support if income/assets may qualify.",
+        status: "Screen",
+      },
+      {
+        title: "Manufacturer patient support",
+        url: `https://www.google.com/search?q=${medicationQuery}+patient+assistance+program`,
+        summary: "For Medicare, look for PAP/free-drug routes, not commercial copay cards.",
+        status: "Search",
+      },
+      {
+        title: "NeedyMeds",
+        url: "https://www.needymeds.org/",
+        summary: "Find patient assistance and foundation leads for the medication.",
+        status: "Search",
+      },
+      {
+        title: "Medicine Assistance Tool",
+        url: "https://www.medicineassistancetool.org/",
+        summary: "Search for patient assistance programs that may apply.",
+        status: "Search",
+      },
+    ];
+  }
+
   return [
     {
       title: "Plan or PBM price estimate",
@@ -846,6 +921,14 @@ function fallbackEvidenceLinks(packet: CaseResultPacket): Array<{
 }
 
 function fallbackRouteText(packet: CaseResultPacket): string {
+  if (isMedicareCase(packet)) {
+    return [
+      "Because this is Medicare coverage, commercial manufacturer copay cards usually are not the route.",
+      "The stronger first checks are: plan formulary/prior authorization status, whether the quote is deductible-driven,",
+      "Extra Help or state assistance, foundation/PAP support, and the Medicare Prescription Payment Plan if the issue is cash flow.",
+    ].join(" ");
+  }
+
   if (packet.costs.quoted_price.cents > 0) {
     return [
       "This looks like a sticker-shock case.",
@@ -861,6 +944,10 @@ function fallbackRouteText(packet: CaseResultPacket): string {
     "step therapy, quantity limits, formulary tier, specialty pharmacy rules, and lower-cost",
     "covered alternatives.",
   ].join(" ");
+}
+
+function isMedicareCase(packet: CaseResultPacket): boolean {
+  return `${packet.case.insurance} ${packet.case.plan}`.toLowerCase().includes("medicare");
 }
 
 function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {

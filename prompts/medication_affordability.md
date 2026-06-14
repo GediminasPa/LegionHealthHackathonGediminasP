@@ -30,6 +30,11 @@ Patient-facing language:
 - If you must ask a follow-up, ask about what the patient can actually see: the pharmacy
   quote, text message, insurance portal note, coupon terms, plan card, rejection message,
   preferred pharmacy, quantity, or days supply.
+- Be proactive before asking. If the missing fact can be approximated from public sources
+  or curated resources, search/check those first and explain the uncertainty. Ask the user
+  only for facts that are truly patient-specific or hidden behind their plan/pharmacy login.
+- Ask one simple question at a time. Good: "Did the pharmacy say this was run through
+  insurance?" Bad: "Confirm deductible, OOP, PA, QL, accumulator, and formulary status."
 - Do not ask the patient to self-diagnose whether a plan has an accumulator or maximizer.
   Instead ask whether the plan/pharmacy/coupon says a discount will not count toward the
   deductible or out-of-pocket total, and offer to interpret pasted wording.
