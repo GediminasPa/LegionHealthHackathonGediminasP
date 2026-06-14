@@ -13,7 +13,6 @@ import {
   ChevronRight,
   CheckCircle2,
   CircleDot,
-  ExternalLink,
   FileText,
   Loader2,
   MessageCircle,
@@ -495,110 +494,103 @@ function ResultPacketView({
         </ChatBubble>
 
         <ChatBubble tone="assistant">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-lg font-semibold text-[#f7f2ec]">Structured result</p>
-              <p className="ui-sans mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-                {running ? "Updating" : "Latest answer"}
-              </p>
-            </div>
-            {running ? <Loader2 className="animate-spin text-[#ef6844]" size={18} /> : null}
-          </div>
-
-          <div className="mt-4 grid gap-5">
-            <div className="grid gap-3 md:grid-cols-3">
-              <MetricCard label="Quoted price" value={packet.costs.quoted_price.formatted} />
-              <MetricCard
-                label={packet.costs.best_price.label}
-                value={packet.costs.best_price.formatted}
-              />
-              <MetricCard
-                label="Potential savings"
-                value={packet.costs.potential_savings.formatted ?? "Needs quote"}
-              />
-            </div>
-
-            <ResultSection title="What we found">
-              <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">{packet.what_we_found}</p>
-            </ResultSection>
-
-            <ResultSection title="Best route">
-              {packet.best_route ? (
-                <div className="grid gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold text-[#f7f2ec]">
-                      {packet.best_route.title}
-                    </h3>
-                    <span className="ui-sans border border-white/12 bg-[#302e2c] px-2 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-                      {labelize(packet.best_route.confidence)}
-                    </span>
-                  </div>
-                  <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
-                    {packet.best_route.summary}
-                  </p>
-                </div>
-              ) : (
-                <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
-                  {running
-                    ? "CopayGuard is building the ranked route."
-                    : "No ranked route is ready yet. Add the missing details and rerun the review."}
-                </p>
-              )}
-            </ResultSection>
-
-            <ResultSection title="Next steps">
-              <ol className="ui-sans grid gap-2 pl-5 text-sm leading-6 text-[#c7c0b8]">
-                {packet.next_steps.map((step) => (
-                  <li className="list-decimal" key={step}>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </ResultSection>
-
-            <ResultSection title="Resources">
-              {packet.resources.length ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {packet.resources.slice(0, 6).map((source) => (
-                    <a
-                      className="button-press min-w-0 border border-white/12 bg-[#2b2928] p-3 text-[#f7f2ec] hover:border-[#ef6844]/70"
-                      href={source.url}
-                      key={`${source.title}-${source.url}`}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <span className="flex items-start justify-between gap-3">
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">
-                            {source.publisher || source.title}
-                          </span>
-                          {source.summary ? (
-                            <span className="ui-sans mt-1 line-clamp-2 block text-xs leading-5 text-[#c7c0b8]">
-                              {source.summary}
-                            </span>
-                          ) : null}
-                        </span>
-                        <ExternalLink className="shrink-0 text-[#8f8780]" size={14} />
-                      </span>
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <p className="ui-sans text-sm leading-6 text-[#c7c0b8]">
-                  Evidence sources will appear once the review saves them.
-                </p>
-              )}
-            </ResultSection>
-
-            <ResultSection title="Result JSON">
-              <pre className="ui-sans max-h-96 overflow-auto border border-white/12 bg-[#11100f] p-4 text-xs leading-5 text-[#d8d2ca]">
-                {JSON.stringify(packet, null, 2)}
-              </pre>
-            </ResultSection>
-          </div>
+          <AgentAnswerText packet={packet} running={running} />
         </ChatBubble>
       </div>
     </article>
+  );
+}
+
+function AgentAnswerText({
+  packet,
+  running,
+}: {
+  packet: CaseResultPacket;
+  running: boolean;
+}) {
+  const resourceList = packet.resources.slice(0, 5);
+  const bestPriceLabel =
+    packet.costs.best_price.cents == null || !packet.costs.best_price.label
+      ? ""
+      : ` (${packet.costs.best_price.label})`;
+  const potentialSavings =
+    packet.costs.potential_savings.cents == null || packet.costs.potential_savings.cents <= 0
+      ? "needs an actual fill price"
+      : packet.costs.potential_savings.formatted;
+
+  return (
+    <div className="ui-sans space-y-5 text-sm leading-7 text-[#ded8d0]">
+      <p className="font-semibold text-[#f7f2ec]">
+        {running ? "I am updating the result." : "Here is the current result."}
+      </p>
+
+      <section className="space-y-1">
+        <h3 className="font-semibold text-[#f7f2ec]">1. Summary</h3>
+        <p>{packet.what_we_found}</p>
+      </section>
+
+      <section className="space-y-1">
+        <h3 className="font-semibold text-[#f7f2ec]">2. Price read</h3>
+        <p>Quoted price: {packet.costs.quoted_price.formatted}</p>
+        <p>
+          Best current estimate: {packet.costs.best_price.formatted}
+          {bestPriceLabel}
+        </p>
+        <p>Potential savings: {potentialSavings}</p>
+        <p>Confidence: {labelize(packet.costs.confidence)}</p>
+      </section>
+
+      <section className="space-y-1">
+        <h3 className="font-semibold text-[#f7f2ec]">3. Best route</h3>
+        {packet.best_route ? (
+          <>
+            <p>{packet.best_route.title}</p>
+            <p>{packet.best_route.summary}</p>
+          </>
+        ) : (
+          <p>
+            No route is ranked yet. I need the pharmacy estimate, preferred pharmacy, and plan rule
+            details before making a recommendation.
+          </p>
+        )}
+      </section>
+
+      <section className="space-y-1">
+        <h3 className="font-semibold text-[#f7f2ec]">4. Resources</h3>
+        {resourceList.length ? (
+          <ol className="list-decimal space-y-1 pl-5">
+            {resourceList.map((source) => (
+              <li key={`${source.title}-${source.url}`}>
+                {source.url ? (
+                  <a
+                    className="text-[#ffd0be] underline decoration-[#ef6844]/50 underline-offset-4 hover:text-white"
+                    href={source.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {source.publisher || source.title}
+                  </a>
+                ) : (
+                  source.publisher || source.title
+                )}
+                {source.summary ? ` - ${source.summary}` : ""}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p>No evidence sources have been saved yet.</p>
+        )}
+      </section>
+
+      <section className="space-y-1">
+        <h3 className="font-semibold text-[#f7f2ec]">5. Next steps</h3>
+        <ol className="list-decimal space-y-1 pl-5">
+          {packet.next_steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </section>
+    </div>
   );
 }
 
@@ -617,37 +609,10 @@ function ChatBubble({
   return <section className={`${alignment} border p-4 ${colors}`}>{children}</section>;
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 border border-white/12 bg-[#2b2928] p-4">
-      <p className="ui-sans text-xs font-semibold uppercase tracking-[0.08em] text-[#c7c0b8]">
-        {label}
-      </p>
-      <p className="mt-2 break-words text-2xl font-semibold tracking-[-0.04em] text-[#f7f2ec]">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ResultSection({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="border border-white/12 bg-[#171615] p-4">
-      <h3 className="text-base font-semibold text-[#f7f2ec]">{title}</h3>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
 function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {
   const bestRoute = snapshot.options[0] ?? null;
   const bestPriceCents = snapshot.costTracker.currentBestEstimatedPriceCents;
+  const explanation = userFacingResultSummary(snapshot);
   return {
     status: snapshot.status,
     case: {
@@ -679,9 +644,7 @@ function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {
       },
       confidence: snapshot.costTracker.confidence,
     },
-    what_we_found:
-      snapshot.costTracker.explanation ||
-      "CopayGuard is still preparing the affordability result.",
+    what_we_found: explanation,
     best_route: bestRoute
       ? {
           title: bestRoute.title,
@@ -706,9 +669,45 @@ function buildResultPacket(snapshot: MedicationSnapshot): CaseResultPacket {
   };
 }
 
+function userFacingResultSummary(snapshot: MedicationSnapshot): string {
+  const explanation = snapshot.costTracker.explanation?.trim();
+  if (explanation && explanation !== "Investigation has not started yet.") {
+    return explanation;
+  }
+
+  if (snapshot.intake.quotedPriceCents <= 0) {
+    return [
+      "This is a pre-fill review.",
+      "I do not have an actual pharmacy quote yet, so the next move is to check likely cost blockers,",
+      "covered alternatives, and cash-versus-insurance pricing before pickup.",
+    ].join(" ");
+  }
+
+  if (snapshot.status === "investigating") {
+    return "I am checking coverage, pricing, assistance, and pharmacy routes for this case.";
+  }
+
+  if (latestFollowUpQuestion(snapshot.messages)) {
+    return "I need one more detail before ranking a route.";
+  }
+
+  return "I do not have enough validated data to rank a route yet. Confirm the missing plan and pharmacy details first.";
+}
+
 function deriveNextSteps(snapshot: MedicationSnapshot): string[] {
+  if (snapshot.intake.quotedPriceCents <= 0) {
+    return [
+      "Confirm the expected pharmacy price or plan estimate.",
+      "Check whether prior authorization, step therapy, formulary tier, or quantity limits apply.",
+      "Ask whether a covered generic, biosimilar, or clinically appropriate alternative is preferred.",
+      "Compare insurance processing against cash or discount pricing before pickup.",
+    ];
+  }
+
   const pendingQuestion = latestFollowUpQuestion(snapshot.messages);
-  if (pendingQuestion) return [`Answer follow-up: ${pendingQuestion}`];
+  if (pendingQuestion) {
+    return [`Answer the follow-up so I can rank the route: ${pendingQuestion}`];
+  }
 
   const artifactSteps = extractActionItems(snapshot.artifacts[0]?.content ?? "");
   if (artifactSteps.length) return artifactSteps.slice(0, 5);
