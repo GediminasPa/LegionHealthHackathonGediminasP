@@ -563,7 +563,7 @@ function HealthcareLogoMarquee({ resources }: { resources: MedicationResourceCon
         className="connection-marquee-heading"
         id="connected-healthcare-sources"
       >
-        Sources CopayGuard checks
+        Healthcare sources CopayGuard checks
       </h2>
       <div className="connection-marquee">
         <div className="connection-marquee-track">

@@ -307,15 +307,18 @@
   }
 
   .connection-marquee-heading {
-    margin: 0 0 0.95rem;
-    color: #9f978f;
+    max-width: 42rem;
+    margin: 0 auto 1.15rem;
+    padding-inline: 1rem;
+    color: #f6f0ea;
     font-family:
       Arial, Helvetica, "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-    font-size: clamp(0.72rem, 0.9vw, 0.84rem);
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: clamp(1.4rem, 2.15vw, 2rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    text-align: center;
+    text-transform: none;
   }
 
   .connection-marquee {
