@@ -564,7 +564,8 @@ function ResultPacketView({
     packet.best_route != null ||
     packet.resources.length > 0 ||
     packet.drafts.length > 0;
-  const shouldShowResult = hasResult && !running;
+  const pendingFollowUp = latestFollowUpQuestion(messages);
+  const shouldShowResult = hasResult && !running && !pendingFollowUp;
   const rows = buildTranscriptRows(activities, messages);
   const lastActivity = activities.at(-1);
   const liveProgressText = agentProgressText(activities, running, status);
