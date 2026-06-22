@@ -1,0 +1,64 @@
+CopayGuard
+
+CASE INVESTIGATION
+QUOTE$0
+BEST
+$0
+NEW CASE
+Agent chat
+
+REVIEW COMPLETE
+
+Review steps
+
+Review complete. Suggestions are ready to expand below.
+
+READY
+
+Intake context loaded
+
+Medication, insurance, quote, and pasted plan text are ready for routing.
+
+Evidence sources checked
+
+4 curated sources are attached to this review.
+
+Route and price estimate ready
+
+The top route and cost tracker are now reflected in the result packet.
+
+Prepared next-step summary
+
+An affordability route is ready for review.
+
+Reviewing Adderall XR 20 mg for Commercial.
+
+This review is ranking likely affordability routes from public and curated healthcare sources. Confirm coverage, eligibility, pharmacy, and deductible or out-of-pocket impact before treating any estimate as a claim result.
+
+The pharmacy quote is $0. I do not have a verified lower route yet.
+
+Best route so far: Pre-fill price and coverage check. Check likely PA, tier, quantity, pharmacy, cash, and covered-alternative routes before pickup.
+
+I checked rxnav.nlm.nih.gov, open.fda.gov, goodrx.com, covermymeds.com.
+
+Next: Confirm the expected pharmacy price or plan estimate.
+
+CASE REVIEW
+
+Adderall XR
+
+High-deductible PPO
+
+REVIEW COMPLETE
+Best routes so far
+
+Top route: Pre-fill price and coverage check
+
+1 FOUND
+Case
+
+Ari Patel / Adderall XR / High-deductible PPO
+
+Drafts
+
+1 draft prepared for calls, messages, or appeals.

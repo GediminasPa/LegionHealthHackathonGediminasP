@@ -18,6 +18,9 @@ frontend/dist/
 .idea/
 .vscode/
 
+# Local browser automation artifacts
+.playwright-mcp/
+
 # Claude Code (local-only state)
 .claude/settings.local.json
 .vercel
