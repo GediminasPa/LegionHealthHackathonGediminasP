@@ -123,16 +123,96 @@ type ApiMedicationResourceConnection = {
 const LOCAL_SESSION_PREFIX = "local-demo-";
 const localSessionIntakes = new Map<string, MedicationIntakeData>();
 
+const LOCAL_DEMO_CASES: DemoCase[] = [
+  {
+    id: "before-fill-adderall-options",
+    title: "Adderall XR pre-fill pricing",
+    summary:
+      "Estimate likely blockers and compare generic stimulant options before the first pharmacy run.",
+    intake: {
+      patientName: "Ari Patel",
+      state: "CA",
+      medicationName: "Adderall XR",
+      strength: "20 mg",
+      dose: "once daily",
+      quotedPriceCents: 0,
+      insuranceType: "Commercial",
+      paStatus: "unknown",
+      planName: "High-deductible PPO",
+      planId: "",
+      deductibleRemaining: "$1,900 remaining",
+      diagnosis: "ADHD",
+      outOfPocketRemaining: "$5,600 remaining",
+      pastedText:
+        "Case reason: The patient wants likely drug cost, plan blockers, and lower-cost alternatives checked before pickup.\n\nPatient is before the first fill. They want likely price blockers checked before pickup: prior authorization, step therapy, quantity limits, generic substitution, cash discount pricing, and whether the plan prefers a different stimulant. Compare insurance processing with cash estimates for generic mixed amphetamine salts ER, brand Adderall XR, generic lisdexamfetamine, and methylphenidate ER if the prescriber considers alternatives clinically appropriate.",
+      preferredPharmacy: "CVS retail pharmacy",
+      quantityDaysSupply: "30 capsules / 30 days",
+    },
+  },
+  {
+    id: "medicare-enbrel-wellcare",
+    title: "Medicare Enbrel / Wellcare",
+    summary: "PA approved, high Part D specialty cost, and Medicare-correct assistance paths.",
+    intake: {
+      patientName: "Maria Chen",
+      state: "CA",
+      medicationName: "Enbrel SureClick 50 mg/mL",
+      strength: "50 mg/mL",
+      dose: "weekly",
+      quotedPriceCents: 210000,
+      insuranceType: "Medicare Part D",
+      paStatus: "approved",
+      planName: "Wellcare Value Script PDP",
+      planId: "S4802-163-0",
+      deductibleRemaining: "$0 remaining",
+      diagnosis: "rheumatoid arthritis",
+      outOfPocketRemaining: "about $2,000 remaining toward the yearly Part D cap",
+      pastedText:
+        "Case reason: The patient already has prior authorization approved but received a high Medicare specialty pharmacy quote, so CopayGuard should skip PA troubleshooting and rank Medicare-correct affordability routes.\n\nPharmacy claim status: claim already run through Medicare Part D at the specialty pharmacy\nAssistance screening: household income is not collected yet, so ask one simple income question before choosing between Extra Help, RA foundation grants, and Amgen Safety Net/free-drug support.\n\nPharmacy quote is $2,100 for Enbrel SureClick after the approved prior authorization. Commercial manufacturer copay cards should be treated as blocked because this is Medicare Part D. Rank independent foundation funds, Amgen Safety Net/free-drug screening, Medicare Extra Help/state assistance if eligible, the Medicare Prescription Payment Plan for payment smoothing, and a formulary exception or prescriber-reviewed alternative only if support routes fail.",
+      preferredPharmacy: "Wellcare preferred specialty pharmacy",
+      quantityDaysSupply: "4 SureClick pens / 28 days",
+    },
+  },
+  {
+    id: "commercial-enbrel-accumulator",
+    title: "Commercial Enbrel accumulator",
+    summary: "Copay support looks helpful today, but plan language suggests deductible credit risk.",
+    intake: {
+      patientName: "Jordan Lee",
+      state: "CA",
+      medicationName: "Enbrel SureClick 50 mg/mL",
+      strength: "50 mg/mL",
+      dose: "weekly",
+      quotedPriceCents: 185000,
+      insuranceType: "Commercial",
+      paStatus: "approved",
+      planName: "Employer PPO with specialty pharmacy benefit",
+      planId: "",
+      deductibleRemaining: "$2,300 remaining",
+      diagnosis: "rheumatoid arthritis",
+      outOfPocketRemaining: "$6,100 remaining",
+      pastedText:
+        "Case reason: The patient used or expected a copay card, but the plan language suggests the discount may not count toward deductible or out-of-pocket progress.\n\nPharmacy claim status: specialty pharmacy quote shown after benefit and copay support review\n\nSpecialty medication copay assistance will not count toward your deductible and will not apply to your out-of-pocket maximum. A variable copay program may apply. Members may be contacted by PrudentRx or SaveOnSP for enrollment. CopayGuard should separate today's low charge from whether the plan credits that support toward the deductible and annual out-of-pocket maximum.",
+      preferredPharmacy: "Accredo specialty pharmacy",
+      quantityDaysSupply: "4 SureClick pens / 28 days",
+    },
+  },
+];
+
 export async function getMedicationDemoCases(): Promise<DemoCase[]> {
-  const res = await fetch("/api/medication-affordability/demo-cases");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const cases = (await res.json()) as ApiDemoCase[];
-  return cases.map((demo) => ({
-    id: demo.id,
-    title: demo.title,
-    summary: demo.summary,
-    intake: fromApiIntake(demo.intake),
-  }));
+  try {
+    const res = await fetch("/api/medication-affordability/demo-cases");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const cases = (await res.json()) as ApiDemoCase[];
+    return cases.map((demo) => ({
+      id: demo.id,
+      title: demo.title,
+      summary: demo.summary,
+      intake: fromApiIntake(demo.intake),
+    }));
+  } catch {
+    return LOCAL_DEMO_CASES;
+  }
 }
 
 export async function getMedicationResources(): Promise<MedicationResourceConnection[]> {
