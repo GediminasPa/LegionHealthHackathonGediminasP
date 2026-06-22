@@ -1,7 +1,7 @@
 [project]
-name = "legion-health-hackathon-gediminas-p"
+name = "healthcare-medication-access-hackathon"
 version = "0.1.0"
-description = "Legion Health hackathon app: FastAPI + Postgres + Pydantic AI + React"
+description = "Healthcare medication access hackathon app: FastAPI + Postgres + Pydantic AI + React"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

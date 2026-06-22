@@ -1,86 +1,134 @@
-# CopayGuard
+# Healthcare Medication Access Hackathon
 
-CopayGuard is a prescription price-transparency and affordability-routing toolkit.
-It helps patients understand why a medication is expensive, compare insurance and
-cash paths, avoid eligibility traps, and generate the next action when a pharmacy
-quote, prior authorization, copay card, or plan rule does not behave the way the
-patient expected.
+This repository is the result of a one-day healthcare-focused hackathon project. The
+prototype app is called **CopayGuard**.
 
-The product is deliberately not positioned as a live PBM price oracle. The exact
-insured out-of-pocket price is still usually produced when a pharmacy or real-time
-benefit tool adjudicates the claim. CopayGuard sits around that moment and turns
-fragmented pricing signals, plan rules, assistance programs, and patient documents
-into a practical decision path.
+The idea was to build a practical tool for ordinary patients who get to the pharmacy and
+find out that their medication is still expensive, even with insurance. Prescription access
+is full of confusing edge cases: high quotes, prior authorizations, specialty tiers,
+deductibles, copay cards, coupon traps, Medicare restrictions, patient assistance programs,
+foundation grants, and cash-price alternatives. I wanted to explore whether an agentic app
+could help people understand what is happening and find the next best route to make a
+prescription more affordable.
 
-The application is built with FastAPI + Postgres + a Grok-powered Pydantic AI agent
-+ React frontend, prepared for local Docker development plus Vercel deployment.
+The project ended up as a partially working prototype rather than the polished product I
+had in mind. It has an intake flow, premade sample cases, a random case generator, a
+medication affordability workspace, curated healthcare source links, and an agent-style
+review panel. It is not a production healthcare product, a live PBM price oracle, or a tool
+that should be used for medical or insurance decisions without verification.
 
-## Price Transparency Toolkit
+## Screenshots
 
-CopayGuard is meant to work across the three moments where prescription price
-surprises happen:
+### Landing Page
 
-1. **Before fill**: identify whether a drug is likely expensive, specialty-tier,
-   prior-authorization blocked, step-therapy constrained, or cheaper as a
-   generic, biosimilar, cash-pay, or direct-to-consumer option.
-2. **At sticker shock**: explain why the pharmacy quote is high and route the
-   patient between insurance, cash/discount pricing, manufacturer copay support,
-   patient assistance programs, foundation grants, plan exceptions, or appeals.
-3. **After weird coupon behavior**: detect accumulator, maximizer, or alternative
-   funding patterns where a copay card lowers today's price but does not count
-   toward the deductible or out-of-pocket maximum.
+This is what the user sees when the website first loads.
 
-The agent's job is to be eligibility-correct. For example, a commercial patient
-may be routed toward a manufacturer copay card only after accumulator/maximizer
-risk is checked, while a Medicare patient should be blocked from that route and
-sent toward Part D tools, Extra Help screening, foundation grants, payment
-smoothing, PAP review, or appeal support.
+![CopayGuard landing page](docs/readme-assets/landingpage.png)
 
-## Integration Roadmap
+### Prescription Intake
 
-Highest-leverage connections for the agent:
+This is the section where the user can enter prescription, insurance, pharmacy, quote, and
+plan-context information.
 
-1. **Drug identity and public cost basis**: RxNorm/RxNav, openFDA NDC, and NADAC.
-   These are the low-friction backbone for normalizing medication names, resolving
-   NDCs, and grounding price explanations in a real public acquisition-cost signal.
-2. **Formulary and utilization management**: CMS Part D formulary public-use files
-   and Da Vinci PDex US Drug Formulary FHIR. Use these to explain tier,
-   prior-authorization, step-therapy, and quantity-limit signals where public data
-   is available.
-3. **Patient-provided documents**: pharmacy receipts, rejection messages, PA
-   approvals or denials, EOBs, plan letters, insurance cards, and specialty
-   pharmacy screenshots. OCR/document extraction is the fastest path to making the
-   agent useful without PBM connectivity.
-4. **Curated affordability programs**: manufacturer copay cards, PAPs, foundation
-   funds, Medicare Extra Help, Medicare Prescription Payment Plan, Cost Plus Drugs,
-   manufacturer direct cash programs, and disease-specific grants. This should
-   remain structured data with checked-at timestamps, not freeform model memory.
-5. **Accumulator/maximizer detection**: vendor and keyword tables for PrudentRx,
-   SaveOnSP, variable copay language, non-essential health benefit language,
-   alternative funding vendors, and coupon-adjustment terminology.
-6. **Cash and coupon pricing**: GoodRx-style prices, SingleCare/RxSaver-style
-   cards, or partner APIs when available. Treat these as alternatives to insurance,
-   not stackable benefits, and warn when cash spend may not count toward deductible
-   or out-of-pocket progress.
-7. **Eligibility and real-time benefit checks**: Stedi or another X12 270/271
-   clearinghouse for eligibility, and Surescripts/Arrive/RTPB-style integrations
-   only through partnerships. These are the true patient-specific price rails, but
-   they are gated and should be mocked or stubbed until access exists.
-8. **Execution loops**: appeal letters, exception requests, copay enrollment
-   packets, PAP pre-fill, fund-reopen monitoring, refill follow-ups, and reminders
-   to ask the pharmacist to run insurance versus a cash discount.
+![CopayGuard prescription intake form](docs/readme-assets/formsection.png)
 
-## Stack
+### Agent Review
+
+This is the workspace where the agent works through the case and interacts with the person.
+
+![CopayGuard agent review workspace](docs/readme-assets/agentview.png)
+
+## What I Built
+
+CopayGuard tries to cover three common medication affordability moments:
+
+1. **Before fill**: check whether a prescription is likely to run into price, prior
+   authorization, step therapy, quantity limit, pharmacy network, or alternative-drug issues.
+2. **At sticker shock**: explain a high pharmacy quote and route the patient between
+   insurance, cash pricing, coupons, manufacturer support, patient assistance, foundation
+   grants, payment smoothing, exceptions, or appeals.
+3. **After weird coupon behavior**: detect cases where a copay card lowers the immediate
+   charge but may not count toward the deductible or out-of-pocket maximum.
+
+The agent is meant to be eligibility-aware. For example, a commercial insurance patient
+may be routed toward manufacturer copay support, but a Medicare Part D patient should not
+be told to use a normal commercial copay card. That patient may need Extra Help screening,
+foundation grants, Medicare Prescription Payment Plan information, free-drug support, or
+appeal preparation instead.
+
+## What Worked
+
+- The project became a concrete medication affordability workflow instead of a generic
+  healthcare chatbot.
+- The sample cases made the product easier to understand: pre-fill pricing, a high Medicare
+  specialty quote, and a commercial coupon/accumulator issue.
+- The UI made the idea feel tangible. There is a clear intake, sample selection, agent
+  review state, source list, route ranking, and draft/action area.
+- The backend and frontend are connected through typed endpoints, persisted sessions,
+  streaming-style agent events, and local fallbacks for demoability.
+- The work helped me understand how messy medication affordability is. The useful product
+  is not just "find a coupon"; it has to separate eligibility, insurance rules, cash flow,
+  deductible impact, and what the patient can actually do next.
+
+## What Did Not Work
+
+- I started building while still learning the problem space. I knew medication costs were a
+  real market problem, but I had not spoken to enough people dealing with it directly and I
+  did not fully understand which exact user pain would create the most impact.
+- I spent too much hackathon time on UI and visual polish. It was fun to experiment with
+  different frontends, but for a one-day hackathon the winning path was probably more
+  functionality and clearer demo value, not a perfect interface.
+- I should have built the core agent view and tool loop first. The highest-leverage demo
+  was the agent finding routes, using tools, preparing drafts, and making the next step
+  obvious. I spent too much time on intake and surrounding structure before making that core
+  loop excellent.
+- I let AI generate too much of the AI-calling and tool-use code. The result was buggy and
+  did not match the output shape I wanted. For this kind of agent workflow, I should have
+  hand-defined the tool inputs, outputs, state transitions, and response contracts first.
+- The project did not use voice, even though voice was a major hackathon theme. There was
+  room to use voice for calling pharmacies or assistance programs, guiding the UI, or
+  letting a patient explain their situation naturally.
+
+## What I Learned
+
+- A healthcare hackathon project needs a sharper problem definition before the build starts.
+  In a short event, every unclear product decision becomes expensive.
+- Domain discovery matters. I should have talked to people who had actually struggled with
+  prescription access, pharmacy quotes, insurance denials, or copay card surprises.
+- The highest-leverage demo path should be built first. Once the core "wow" workflow works,
+  intake, polish, and secondary features can be layered around it.
+- Agent tooling needs explicit contracts. Models can help implement code, but for tool use I
+  should define schemas, tool responsibilities, state updates, and final output formats by
+  hand.
+- Good healthcare software is less about sounding smart and more about being precise about
+  eligibility, evidence, uncertainty, and the next action.
+
+## What I Would Improve Next
+
+- Make appeal letters, pharmacy call scripts, assistance packets, and exception requests
+  visible and editable directly in the app.
+- Connect to real data sources where patients can pull plan, eligibility, claim, or
+  pharmacy information when available.
+- Add voice support for explaining the case, controlling the UI, or helping with phone-call
+  workflows.
+- Explore browser automation for filling assistance forms, checking program eligibility, or
+  visiting official resources on behalf of the user with confirmation.
+- Ground the agent in more trustworthy sources and make it show exactly which route depends
+  on which eligibility fact.
+- Build a smaller but stronger first demo: one user, one medication-cost problem, one clear
+  before-and-after outcome.
+
+## Tech Stack
 
 | Layer | What |
 |---|---|
 | API | FastAPI, async SQLAlchemy 2.0, Alembic, pydantic-settings |
 | DB | Postgres 16 via `docker-compose.yml` |
-| AI | Pydantic AI agent using xAI Grok, streaming SSE chat endpoint, prompts in `prompts/` |
-| Frontend | Vite + React + TypeScript + Tailwind, typed API client, streaming chat UI |
+| AI | Pydantic AI agent using xAI Grok, streaming endpoints, prompts in `prompts/` |
+| Frontend | Vite + React + TypeScript + Tailwind |
 | Quality | ruff, pyright, pytest, git hooks, `bin/check`, GitHub Action |
 
-## Quickstart
+## Run Locally
 
 Prereqs: `uv`, Node from `.nvmrc`, and Docker. OrbStack works as the Docker runtime.
 
@@ -94,99 +142,20 @@ git config core.hooksPath .githooks
 bin/dev
 ```
 
-Open `http://localhost:5173`. The health badge should show the API and DB status.
+Open `http://localhost:5173`.
 
-To enable the app's main AI agent, add `GROK_API_KEY` or `XAI_API_KEY` to `.env` and restart `bin/dev`.
+To enable the app's main AI agent, add `GROK_API_KEY` or `XAI_API_KEY` to `.env` and restart
+`bin/dev`.
 
-## Main Agent
-
-The application uses xAI Grok as its primary agent model through Pydantic AI. The backend builds the model from `.env` per request, so local development and deployed environments both use the same settings:
-
-```bash
-GROK_API_KEY=<your-grok-key>
-GROK_BASE_URL=https://api.x.ai/v1
-AGENT_MODEL=grok:grok-4.3
-```
-
-The chat UI streams through `POST /api/agent/chat`. Anthropic remains available only as a fallback by setting `AGENT_MODEL=anthropic:<model>` and `ANTHROPIC_API_KEY`.
-
-## Medication Affordability Workspace
-
-The primary app screen is now the medication affordability investigation workspace. It
-starts with intake, includes Medicare Enbrel and commercial accumulator demo cases, creates
-a persisted session, and streams typed investigation events into chat, cost tracking,
-activity, sources, options, and artifacts.
-
-Core endpoints:
-
-- `GET /api/medication-affordability/demo-cases`
-- `POST /api/medication-affordability/sessions`
-- `GET /api/medication-affordability/sessions/{session_id}`
-- `POST /api/medication-affordability/sessions/{session_id}/messages`
-- `POST /api/medication-affordability/sessions/{session_id}/runs`
-- `POST /api/medication-affordability/sessions/{session_id}/artifacts`
-
-The v1 run endpoint uses a persisted mocked investigation stream that follows the planned
-event contract. The medication-specific Grok/xAI Responses helper and curated resource
-registry are in place for the real agent loop.
-
-Planning docs:
-
-- [Agent architecture](docs/medication-affordability-agent/05-agent-architecture.md)
-- [Source registry](docs/medication-affordability-agent/06-source-registry.md)
-
-## Day-to-day
+Useful commands:
 
 ```bash
 bin/dev          # Postgres + API on :8000 + frontend on :5173
 bin/check        # full quality gate
 bin/up           # just Postgres + migrations
 bin/db shell     # psql into the DB
-bin/db revision "add orders"
 bin/db reset
 ```
-
-## Docker / OrbStack
-
-OrbStack is the local Docker runtime for this project. The default local loop uses it for
-Postgres, while FastAPI and Vite run directly on the host for faster reloads:
-
-```bash
-bin/dev
-```
-
-For a container-style backend deployment path, the repo also includes a backend image and
-Compose service:
-
-```bash
-docker compose up --build api
-```
-
-That starts Postgres, runs Alembic migrations, and serves FastAPI on `http://localhost:8000`.
-The Vite frontend is still run separately unless you choose to containerize the frontend too:
-
-```bash
-npm --prefix frontend run dev
-```
-
-## Vercel
-
-This repo includes:
-
-- `api/index.py`, which exposes the existing FastAPI app to Vercel's Python runtime.
-- `vercel.json`, which builds the Vite frontend from `frontend/`, serves `frontend/dist`, and routes `/api/*` to FastAPI.
-
-Set these environment variables in Vercel before deploying:
-
-```bash
-APP_NAME=CopayGuard
-DATABASE_URL=<hosted-postgres-asyncpg-url>
-GROK_API_KEY=<optional-until-agent-chat-is-needed>
-GROK_BASE_URL=https://api.x.ai/v1
-AGENT_MODEL=grok:grok-4.3
-```
-
-Use hosted Postgres for Vercel. The local `docker-compose.yml` database is only for development through Docker or OrbStack.
 
 ## Project Map
 
@@ -201,6 +170,7 @@ app/
   agents/        # Pydantic AI agent + tools
 api/index.py     # Vercel Python entrypoint
 prompts/         # agent system prompts
-frontend/src/    # React app; api.ts = typed client + SSE streaming
+frontend/src/    # React app
+docs/            # planning notes and README assets
 tests/           # pytest against a real Postgres test database
 ```
